@@ -27,10 +27,10 @@ BINDEST = /usr/local/bin
 CC = g++
 MKDEP	= ../../../conf/mkdep
 
-INCLUDE = -I. -I/usr/local/ns2/tclcl-1.20 -I/usr/local/ns2/otcl-1.14 -I/usr/local/ns2/include -I/usr/local/ns2/include -I/usr/local/ns2/include -I/usr/include/pcap
+INCLUDE = -I. -I/usr/local/ns2/tclcl-1.20 -I/usr/local/ns2/otcl-1.14 -I/usr/local/ns2/tk8.5.10/generic -I/usr/local/ns2/tcl8.5.10/generic -I/usr/local/ns2/tcl8.5.10/generic -I/usr/include/pcap
 CFLAGS =  -Wall -Wno-write-strings -DCPP_NAMESPACE=std
 LDFLAGS = 
-LIBS = -L/usr/local/ns2/lib -ltcl8.5  -lnsl -ldl -lm 
+LIBS = -L/usr/local/ns2/tcl8.5.10/unix -ltcl8.5  -lnsl -ldl -lm 
 INSTALL = /usr/bin/install -c
 
 SRC = tr-stat.cc logparse.cc utils.cc

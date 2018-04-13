@@ -95,12 +95,20 @@ public:
 		{
 			srand((unsigned)time(NULL));  
 			key=rand();
-			printf("%lf-Node-%d: key=%d maxslot_=%d \n"
-				,Scheduler::instance().clock()
-				,nodeID_
-				,key
-				,maxslot_
-				);
+			FILE* fpResult=fopen("debug.tr","a+");
+			if(fpResult==NULL)
+		    {
+		        fprintf(stderr,"Can't open file %s!\n","debug.tr");
+		    	// return(TCL_ERROR);
+		    } else {
+				fprintf(fpResult, "%lf-Node-%d: key=%d maxslot_=%d \n"
+					,Scheduler::instance().clock()
+					,nodeID_
+					,key
+					,maxslot_
+					);
+				fclose(fpResult);
+			}
 		}
 		else /////For ECMP
 		{
@@ -160,17 +168,26 @@ public:
 			// 	// 	printf("%02X",F_Tuple[i]);
 			// 	// }
 			// 	// printf("\n");
-			// 	printf("%lf-Node-%d: key=%d randSalt=%u ecmpHashKey=%u maxslot_=%d crc=%u regionStart=%u regionOffSet=%u\n"
-			// 	,Scheduler::instance().clock()
-			// 	,nodeID_
-			// 	,key
-			// 	,randSalt_
-			// 	,cmnh->ecmpHashKey
-			// 	,maxslot_
-			// 	,crc
-			// 	,regionStart
-			// 	,regionOffSet
-			// 	);
+
+			FILE* fpResult=fopen("debug.tr","a+");
+			if(fpResult==NULL)
+		    {
+		        fprintf(stderr,"Can't open file %s!\n","debug.tr");
+		    	// return(TCL_ERROR);
+		    } else {
+				fprintf(fpResult, "%lf-Node-%d: key=%d randSalt=%u ecmpHashKey=%u maxslot_=%d crc=%u regionStart=%u regionOffSet=%u\n"
+				,Scheduler::instance().clock()
+				,nodeID_
+				,key
+				,randSalt_
+				,cmnh->ecmpHashKey
+				,maxslot_
+				,crc
+				,regionStart
+				,regionOffSet
+				);
+				fclose(fpResult);
+			}
 			// }
 			
 

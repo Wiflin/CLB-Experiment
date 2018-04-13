@@ -163,6 +163,7 @@ $rnd set max_ 1
 set programStartTime [clock seconds]
 
 Node set multiPath_ 1
+Node set loadBalancePerPacket_ 1
 
 set nd [open outAllTrace-$tcpVersion-$rwndSize.tr w]
 # $ns trace-all $nd

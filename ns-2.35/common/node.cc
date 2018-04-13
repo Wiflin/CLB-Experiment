@@ -114,7 +114,7 @@ Node::Node() :
 	LIST_INIT(&linklisthead_);
 	insert(&(Node::nodehead_)); // insert self into static list of nodes
 	bind("randSalt_", &randSalt_);///CG add
-	bing("loadBalancePerPacket_", &loadBalancePerPacket_);
+	bind("loadBalancePerPacket_", &loadBalancePerPacket_);
 #ifdef HAVE_STL
 	// Mods for Nix-Vector routing
 	if (NixRoutingUsed < 0)	{

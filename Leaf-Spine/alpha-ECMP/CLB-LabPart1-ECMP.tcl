@@ -40,7 +40,7 @@ set fFCT "InputFlow-FCT-$serverNumber-$flowNumber.tr"
 
 # set failureNumber 3
 
-
+Node set loadBalancePerPacket_ 0
 # server nodes
 for {set i 0} {$i<$serverNumber} {incr i} {
 	set n($i) [$ns node]

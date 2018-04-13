@@ -38,8 +38,8 @@ CPP	= g++
 LINK	= $(CPP)
 LINK_SHLIB = gcc -shared
 MKDEP	= ./conf/mkdep
-TCLSH	= /usr/local/ns2/bin/tclsh8.5
-TCL2C	= ../tclcl-1.20/tcl2c++
+TCLSH	= /usr/bin/tclsh8.5
+TCL2C	= /usr/local/ns2/tclcl-1.20/tcl2c++
 AR	= ar rc $(BLANK)
 
 RANLIB	= ranlib
@@ -64,7 +64,7 @@ DEFINE	= -DTCP_DELAY_BIND_ALL -DNO_TK -DTCLCL_CLASSINSTVAR  -DNDEBUG -DLINUX_TCP
 INCLUDES = \
 	-I.  \
 	-I. \
-	-I/usr/local/ns2/tclcl-1.20 -I/usr/local/ns2/otcl-1.14 -I/usr/local/ns2/include -I/usr/local/ns2/include -I/usr/local/ns2/include -I/usr/include/pcap \
+	-I/usr/local/ns2/tclcl-1.20 -I/usr/local/ns2/otcl-1.14 -I/usr/local/ns2/tk8.5.10/generic -I/usr/local/ns2/tcl8.5.10/generic -I/usr/local/ns2/tcl8.5.10/generic -I/usr/include/pcap \
 	-I./tcp -I./sctp -I./common -I./link -I./queue \
 	-I./adc -I./apps -I./mac -I./mobile -I./trace \
 	-I./routing -I./tools -I./classifier -I./mcast \
@@ -76,7 +76,7 @@ INCLUDES = \
 
 
 LIB	= \
-	-L/usr/local/ns2/tclcl-1.20 -ltclcl -L/usr/local/ns2/otcl-1.14 -lotcl -L/usr/local/ns2/lib -ltk8.5 -L/usr/local/ns2/lib -ltcl8.5 \
+	-L/usr/local/ns2/tclcl-1.20 -ltclcl -L/usr/local/ns2/otcl-1.14 -lotcl -L/usr/local/ns2/tk8.5.10/unix -ltk8.5 -L/usr/local/ns2/tcl8.5.10/unix -ltcl8.5 \
 	-lXext -lX11 \
 	 -lnsl -ldl \
 	-lm -lm 

@@ -619,6 +619,7 @@ Classifier/MultiPath set fLayer_ 0
 Classifier/MultiPath set randSalt_ 0
 Classifier/MultiPath set nodeID_ -1
 Classifier/MultiPath set sLeaf_Conga_ 0
+Classifier/MultiPath loadBalancePerPacket_ 0
 Classifier/Hash/Dest set sLeaf_Conga_ 0
 Classifier/Hash/Dest set nodeID_ -1
 Classifier/Hash/Dest set minHost_ -1
