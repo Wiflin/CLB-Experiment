@@ -32,7 +32,7 @@ set topSwitchNumber 	[expr int($switchPortNumber/2)]
 
 puts "Network Structure Initialized: ServerNumber($serverNumber) AccessSwitchNumber($accessSwitchNumber) TopSwitchNumber($topSwitchNumber)......"
 
-set fTraffic [open InputTraffic-$serverNumber-[expr $flowNumber].tr r]
+set fTraffic [open InputFlow-$serverNumber-[expr $flowNumber].tr r]
 
 set fInputTrafficBindFlowID [open InputFlow-BindFlowID-$serverNumber-[expr $flowNumber].tr w]
 
@@ -89,12 +89,12 @@ for {set i 0} {$i<$accessSwitchNumber} {incr i} {
 		# $queue1 monitor-E2EDelay
 		# $queue1 monitor-QueueLen
 		# $queue1 monitor-Drop
-		# $queue1 monitor-FlowPath
+		$queue1 monitor-FlowPath
 
 		set queue2 [[$ns link $n($k) $sLeaf($i)] queue]
 		# $queue2 monitor-QueueLen
 		# $queue2 monitor-Drop
-		# $queue2 monitor-FlowPath
+		$queue2 monitor-FlowPath
 	}
 }
 
@@ -117,12 +117,12 @@ for {set i 0} {$i<$accessSwitchNumber} {incr i} {
 			set queue1 [[$ns link $sSpine($k) $sLeaf($i)] queue]
 			# $queue1 monitor-QueueLen
 			# $queue1 monitor-Drop
-			# $queue1 monitor-FlowPath
+			$queue1 monitor-FlowPath
 
 			set queue2 [[$ns link  $sLeaf($i) $sSpine($k)] queue]
 			# $queue2 tag-timestamp
 			# $queue2 monitor-QueueLen
-			# $queue2 monitor-FlowPath
+			$queue2 monitor-FlowPath
 			# $queue2 monitor-Drop
 
 			# what is this means?
