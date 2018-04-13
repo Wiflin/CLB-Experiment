@@ -52,6 +52,7 @@ static const char rcsid[] =
 #include "classifier.h"
 #include "ip.h"
 #include <math.h>
+#include <time.h>  
 
 #include "crc16.h"  ////CG add
 
@@ -62,6 +63,7 @@ public:
 		bind("sLeaf_Conga_", &sLeaf_Conga_);
 		bind("nodeID_", &nodeID_);
 		bind("randSalt_", &randSalt_);///CG add
+		bind("loadBalancePerPacket_", &loadBalancePerPacket_); //WF add
 	} 
 	virtual int classify(Packet* p) {
 //CG add!
@@ -88,6 +90,17 @@ public:
 		else if(sLeaf_Conga_==1 && cmnh->ifCONGA()==1) ////For CONGA
 		{
 			key=cmnh->LBTag;
+		}
+		else if(loadBalancePerPacket_ == 1)
+		{
+			srand((unsigned)time(NULL));  
+			key=rand();
+			printf("%lf-Node-%d: key=%d maxslot_=%d \n"
+				,Scheduler::instance().clock()
+				,nodeID_
+				,key
+				,maxslot_
+				);
 		}
 		else /////For ECMP
 		{
@@ -129,7 +142,7 @@ public:
 				key=1;
 			}
 
-			// key=(int) cmnh->ecmpHashKey/((0x10000)/(maxslot_+1));
+			key=(int) cmnh->ecmpHashKey/((0x10000)/(maxslot_+1));
 			
 
 			// if(maxslot_>=1)

@@ -108,6 +108,7 @@ protected:
 	int LeafNumber_;///CG add!
 	int PortNumber_;///CG add
 	int randSalt_;////CG add!
+	int loadBalancePerPacket_; //WF add
 
 	int CLB_Node_;///CG add!
 
