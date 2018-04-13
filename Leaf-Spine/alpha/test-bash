@@ -1,2 +1,2 @@
-#!/usr/bin/bash 
+#!/bin/bash 
 ns CLB-LabPart1-ECMP.tcl 10000 0.02 4 10G 10 1G 10 4561832.1486
