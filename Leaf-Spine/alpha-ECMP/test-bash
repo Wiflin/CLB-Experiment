@@ -1,2 +1,7 @@
 #!/bin/bash 
-ns CLB-LabPart1-ECMP.tcl 10000 0.02 4 10G 10 1G 10 4561832.1486
+rm -rf Flowpath
+rm -f InputFlow-BindFlowID*
+rm -f InputFlow-FCT*
+rm -f tmp
+rm -f debug.tr
+ns CLB-LabPart1-PerPacket.tcl 10000 0.02 4 10G 10 1G 10 4561832.1486 >tmp

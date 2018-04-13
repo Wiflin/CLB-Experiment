@@ -41,22 +41,25 @@ set fFCT "InputFlow-FCT-$serverNumber-$flowNumber.tr"
 # set failureNumber 3
 
 Node set loadBalancePerPacket_ 0
+Node set multiPath_ 1
+$ns set staticRoute_ 1
+
 # server nodes
 for {set i 0} {$i<$serverNumber} {incr i} {
 	set n($i) [$ns node]
-	# $n($i) enable-salt
+	$n($i) enable-salt
 }
 
 # 1*access layer + [expr $switchLayer-2]*distribution layer
 for {set i 0} {$i<$accessSwitchNumber} {incr i} {
 	set sLeaf($i) [$ns node]
-	# $sLeaf($i,$j) enable-salt
+	$sLeaf($i) enable-salt
 }
 
 # core layer
 for {set i 0} {$i<$topSwitchNumber} {incr i} {
 	set sSpine($i) [$ns node]
-	# $sSpine($i) enable-salt
+	$sSpine($i) enable-salt
 }
 
 set queueSpineSwitch 600
@@ -136,9 +139,6 @@ for {set i 0} {$i<$accessSwitchNumber} {incr i} {
 
 
 ######################## set static routes ############################
-
-Node set multiPath_ 1
-$ns set staticRoute_ 1
 
 # initialize route-table
 for {set i 0} {$i<$serverNumber} {incr i} {
@@ -285,7 +285,7 @@ for {set k 0} {$k<$flowNumber} {incr k} {
 		set tcp($currentInsertingConnID) [new Agent/TCP/FullTcp/Sack]
 		set tcpsink($currentInsertingConnID) [new Agent/TCP/FullTcp/Sack]
 
-		$tcp($currentInsertingConnID) ecmp-hash-key [expr int([$rnd value]*0x100000000)]
+		$tcp($currentInsertingConnID) ecmp-hash-key [expr abs(int([$rnd value]*0x10000))]
 
 		# $tcp($currentInsertingConnID) monitor-spare-window
 

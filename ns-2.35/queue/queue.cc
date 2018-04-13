@@ -398,6 +398,9 @@ void Queue::printFlowPath(Packet* pkt)
     hdr_ip *iph = hdr_ip::access(pkt);
     hdr_cmn* cmnh = hdr_cmn::access(pkt);
 
+// it means just count the what flow get pass by the node
+// #define DO_NOT_COUNT_FLOW_SIZE
+#ifdef DO_NOT_COUNT_FLOW_SIZE
 	vector < flowInfo >::iterator it;
 	for(it = FlowTable.begin (); it != FlowTable.end (); ++it)
 	{
@@ -416,6 +419,7 @@ void Queue::printFlowPath(Packet* pkt)
 	tmp_map.dstAddr=iph->dst().addr_;
 	tmp_map.dstPort=iph->dst().port_;
 	FlowTable.push_back (tmp_map);
+#endif
 
 	char str1[128];
 	memset(str1,0,128*sizeof(char));
@@ -429,12 +433,13 @@ void Queue::printFlowPath(Packet* pkt)
 		fprintf(stderr,"%s, Can't open file %s!\n",strerror(errno),str1);
 	}
     
-    fprintf(fpFlowPath,"%.9f\t%d.%d-%d.%d %u %d\n",
+    fprintf(fpFlowPath,"%.9f\t%d.%d-%d.%d %u %d %u\n",
         Scheduler::instance().clock()
         ,iph->src().addr_,iph->src().port_
 		,iph->dst().addr_,iph->dst().port_
 		,cmnh->ecmpHashKey
-		,cmnh->flowID);
+		,cmnh->flowID
+		,cmnh->size_);
 
     fclose(fpFlowPath);
 }

@@ -64,6 +64,7 @@ public:
 		bind("nodeID_", &nodeID_);
 		bind("randSalt_", &randSalt_);///CG add
 		bind("loadBalancePerPacket_", &loadBalancePerPacket_); //WF add
+		srand((unsigned)time(NULL));
 	} 
 	virtual int classify(Packet* p) {
 //CG add!
@@ -93,22 +94,22 @@ public:
 		}
 		else if(loadBalancePerPacket_ == 1)
 		{
-			srand((unsigned)time(NULL));  
+
 			key=rand();
-			FILE* fpResult=fopen("debug.tr","a+");
-			if(fpResult==NULL)
-		    {
-		        fprintf(stderr,"Can't open file %s!\n","debug.tr");
-		    	// return(TCL_ERROR);
-		    } else {
-				fprintf(fpResult, "%lf-Node-%d: key=%d maxslot_=%d \n"
-					,Scheduler::instance().clock()
-					,nodeID_
-					,key
-					,maxslot_
-					);
-				fclose(fpResult);
-			}
+			// FILE* fpResult=fopen("debug.tr","a+");
+			// if(fpResult==NULL)
+		 //    {
+		 //        fprintf(stderr,"Can't open file %s!\n","debug.tr");
+		 //    	// return(TCL_ERROR);
+		 //    } else {
+			// 	fprintf(fpResult, "%lf-Node-%d: key=%d maxslot_=%d \n"
+			// 		,Scheduler::instance().clock()
+			// 		,nodeID_
+			// 		,key
+			// 		,maxslot_
+			// 		);
+			// 	fclose(fpResult);
+			// }
 		}
 		else /////For ECMP
 		{
@@ -169,25 +170,6 @@ public:
 			// 	// }
 			// 	// printf("\n");
 
-			FILE* fpResult=fopen("debug.tr","a+");
-			if(fpResult==NULL)
-		    {
-		        fprintf(stderr,"Can't open file %s!\n","debug.tr");
-		    	// return(TCL_ERROR);
-		    } else {
-				fprintf(fpResult, "%lf-Node-%d: key=%d randSalt=%u ecmpHashKey=%u maxslot_=%d crc=%u regionStart=%u regionOffSet=%u\n"
-				,Scheduler::instance().clock()
-				,nodeID_
-				,key
-				,randSalt_
-				,cmnh->ecmpHashKey
-				,maxslot_
-				,crc
-				,regionStart
-				,regionOffSet
-				);
-				fclose(fpResult);
-			}
 			// }
 			
 
@@ -218,6 +200,28 @@ public:
 			printf("Node:%d  fLayer_ successfully binded!\n",nodeID_);
 		}
 ///CG add ends!
+
+
+		FILE* fpResult=fopen("debug.tr","a+");
+		if(fpResult==NULL)
+	    {
+	        fprintf(stderr,"Can't open file %s!\n","debug.tr");
+	    	// return(TCL_ERROR);
+	    } else {
+			fprintf(fpResult, "%lf-Node-%d-(%d->%d): size=%d key=%d randSalt=%u ecmpHashKey=%u maxslot_=%d cl=%d\n"
+			,Scheduler::instance().clock()
+			,nodeID_
+			,iph->src_
+			,iph->dst_
+			,cmnh->size_
+			,key
+			,randSalt_
+			,cmnh->ecmpHashKey
+			,maxslot_
+			,cl
+			);
+			fclose(fpResult);
+		}
 		
 /*///original		
 		int fail = ns_;

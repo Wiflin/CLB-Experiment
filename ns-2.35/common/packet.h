@@ -723,7 +723,7 @@ struct hdr_cmn {
 	int dstLeaf;
 
 
-	int ecmpHashKey;///For ECMP routing
+	unsigned ecmpHashKey;///For ECMP routing
 	int flowID;
 //CG add ends
 
