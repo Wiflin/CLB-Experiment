@@ -1921,7 +1921,7 @@ addExplicitRoute sSpine(0) n(38) sLeaf(3)
 addExplicitRoute sSpine(1) n(38) sLeaf(3)
 addExplicitRoute sSpine(0) n(39) sLeaf(3)
 addExplicitRoute sSpine(1) n(39) sLeaf(3)
-Adding routes for leaf and spine completed! Run for 0h:0m:0s
+Adding routes for leaf and spine completed! Run for 0h:0m:1s
 Input flows(0) completed! Run for 0h:0m:0s
 Input flows(10) completed! Run for 0h:0m:0s
 longFlowNum(10) smallFlowNum(0) totalConnNum(10) normalConnNum(10) longConnNum(0)

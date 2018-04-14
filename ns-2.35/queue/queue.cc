@@ -399,7 +399,7 @@ void Queue::printFlowPath(Packet* pkt)
     hdr_cmn* cmnh = hdr_cmn::access(pkt);
 
 // it means just count the what flow get pass by the node
-// #define DO_NOT_COUNT_FLOW_SIZE
+#define DO_NOT_COUNT_FLOW_SIZE
 #ifdef DO_NOT_COUNT_FLOW_SIZE
 	vector < flowInfo >::iterator it;
 	for(it = FlowTable.begin (); it != FlowTable.end (); ++it)

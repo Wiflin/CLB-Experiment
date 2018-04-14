@@ -269,13 +269,13 @@ void FTP_Sink::recv(int nbytes)
 			FCT=flowStopTime-flowStartTime;
 			Tcl& tcl = Tcl::instance();
 			tcl.evalf("[Simulator instance] finished-flow-add");
-			fprintf(stderr,"%f---flow[%d] conn[%d](%d.%d-%d.%d) complete: flowSize=%d, FCT=%f\n"
+			fprintf(stderr,"%f---flow[%d] conn[%d](%d.%d-%d.%d) complete: flowSize=%d, FCT=%f, start=%f, stop=%f\n"
 				,Scheduler::instance().clock()
 				,flowID
 				,agent_->get_flowID()
 				,agent_->addr(),agent_->port()
 				,agent_->daddr(),agent_->dport()
-				,flowSize,FCT);
+				,flowSize,FCT,flowStartTime,flowStopTime);
 		}
 	}	
 	else
@@ -321,13 +321,13 @@ void FTP_Sink::recv(int nbytes)
 			p->FCT=p->flowStopTime-p->flowStartTime;
 			Tcl& tcl = Tcl::instance();
 			tcl.evalf("[Simulator instance] finished-flow-add");
-			fprintf(stderr,"%f---flow[%d] conn[%d](%d.%d-%d.%d) complete: flowSize=%d, FCT=%f\n"
+			fprintf(stderr,"%f---flow[%d] conn[%d](%d.%d-%d.%d) complete: flowSize=%d, FCT=%f, start=%f, stop=%f\n"
 				,Scheduler::instance().clock()
 				,p->flowID
 				,agent_->get_flowID()
 				,agent_->addr(),agent_->port()
 				,agent_->daddr(),agent_->dport()
-				,p->flowSize,p->FCT);
+				,p->flowSize,p->FCT,p->flowStartTime,p->flowStopTime);
 			current_flow++;
 		}
 	}

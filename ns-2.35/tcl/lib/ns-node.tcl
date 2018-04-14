@@ -78,7 +78,8 @@ Node instproc init args {
 	eval $self next $args
 
         $self instvar id_ agents_ dmux_ neighbor_ rtsize_ address_ \
-			nodetype_ multiPath_ ns_ rtnotif_ ptnotif_ mtRouting_ fLayer_ sLeaf_Conga_ randSalt_ loadBalancePerPacket_ 
+			nodetype_ multiPath_ ns_ rtnotif_ ptnotif_ mtRouting_ fLayer_ sLeaf_Conga_ randSalt_ loadBalancePerPacket_ \
+			loadBalanceFlowlet_
 #CG add fLayer_ and sLeaf_Conga_ randSalt_!
 #WF add loadBalancePerPacket_
 
@@ -112,6 +113,7 @@ Node instproc init args {
 	set sLeaf_Conga_ [$class set sLeaf_Conga_]
 	set randSalt_ [$class set randSalt_]
 	set loadBalancePerPacket_ [$class set loadBalancePerPacket_]
+	set loadBalanceFlowlet_ [$class set loadBalanceFlowlet_]
 #	puts "fLayer Set!"
 }
 
@@ -317,7 +319,7 @@ Node instproc delete-route args {
 # Node support for detailed dynamic unicast routing
 #
 Node instproc init-routing rtObject {
-	$self instvar multiPath_ routes_ rtObject_ fLayer_ sLeaf_Conga_ randSalt_ loadBalancePerPacket_ 
+	$self instvar multiPath_ routes_ rtObject_ fLayer_ sLeaf_Conga_ randSalt_ loadBalancePerPacket_ loadBalanceFlowlet_
 	# CG add
 	set nn [$class set nn_]
 	for {set i 0} {$i < $nn} {incr i} {
@@ -393,7 +395,8 @@ Node instproc set-bandwidth {bandwidth} {
 
 # Node support for equal cost multi path routing
 Node instproc add-routes {id ifs} {
-	$self instvar classifier_ multiPath_ routes_ mpathClsfr_ fLayer_ sLeaf_Conga_ randSalt_ loadBalancePerPacket_ 
+	$self instvar classifier_ multiPath_ routes_ mpathClsfr_ fLayer_ sLeaf_Conga_ randSalt_ loadBalancePerPacket_ \
+		loadBalanceFlowlet_
 
 	if !$multiPath_ {
 		if {[llength $ifs] > 1} {
@@ -416,12 +419,13 @@ Node instproc add-routes {id ifs} {
 			# 3. install the mclassifier in the node classifier_
 			#
 			set mpathClsfr_($id) [new Classifier/MultiPath]
-			$mpathClsfr_($id) instvar fLayer_ nodeID_ sLeaf_Conga_ randSalt_ loadBalancePerPacket_  
+			$mpathClsfr_($id) instvar fLayer_ nodeID_ sLeaf_Conga_ randSalt_ loadBalancePerPacket_  loadBalanceFlowlet_
 			set fLayer_ [$self set fLayer_] 
 			set sLeaf_Conga_ [$self set sLeaf_Conga_] 
 			set nodeID_ [$self set address_]
 			set randSalt_ [$self set randSalt_]
 			set loadBalancePerPacket_ [$self set loadBalancePerPacket_]
+			set loadBalanceFlowlet_ [$self set loadBalanceFlowlet_]
 
 			#CG add
 
