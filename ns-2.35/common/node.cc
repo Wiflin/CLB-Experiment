@@ -115,7 +115,6 @@ Node::Node() :
 	insert(&(Node::nodehead_)); // insert self into static list of nodes
 	bind("randSalt_", &randSalt_);///CG add
 	bind("loadBalancePerPacket_", &loadBalancePerPacket_);
-	bind("loadBalanceFlowlet_", &loadBalanceFlowlet_); // WF add
 #ifdef HAVE_STL
 	// Mods for Nix-Vector routing
 	if (NixRoutingUsed < 0)	{

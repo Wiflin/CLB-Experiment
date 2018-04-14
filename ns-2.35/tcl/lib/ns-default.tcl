@@ -611,7 +611,6 @@ Node set rtagent_port_ 255
 Node set fLayer_ 0 
 Node set randSalt_ 0 
 Node set loadBalancePerPacket_ 0
-Node set loadBalanceFlowlet_ 0
 Node set sLeaf_Conga_ 0 
 Node set CLB_Node_ 0 
 Node set BlockSize_N 0 
@@ -622,7 +621,6 @@ Classifier/MultiPath set randSalt_ 0
 Classifier/MultiPath set nodeID_ -1
 Classifier/MultiPath set sLeaf_Conga_ 0
 Classifier/MultiPath set loadBalancePerPacket_ 0
-# Classifier/MultiPath set loadBalanceFlowlet_ 1
 Classifier/Hash/Dest set sLeaf_Conga_ 0
 Classifier/Hash/Dest set nodeID_ -1
 Classifier/Hash/Dest set minHost_ -1
