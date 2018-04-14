@@ -209,7 +209,7 @@ public:
 	        fprintf(stderr,"Can't open file %s!\n","debug.tr");
 	    	// return(TCL_ERROR);
 	    } else {
-			fprintf(fpResult, "%lf-Node-%d-(%d->%d): size=%d key=%d randSalt=%u ecmpHashKey=%u maxslot_=%d cl=%d flowlet=%u\n"
+			fprintf(fpResult, "%lf-Node-%d-(%d->%d): size=%d key=%d randSalt=%u ecmpHashKey=%u maxslot_=%d cl=%d flowlet=%u blocksizeN=%u\n"
 			,Scheduler::instance().clock()
 			,nodeID_
 			,iph->src_
@@ -221,6 +221,7 @@ public:
 			,maxslot_
 			,cl
 			,loadBalanceFlowlet_
+			,BlockSize_N_
 			);
 			fclose(fpResult);
 		}
