@@ -64,6 +64,7 @@ public:
 		bind("nodeID_", &nodeID_);
 		bind("randSalt_", &randSalt_);///CG add
 		bind("loadBalancePerPacket_", &loadBalancePerPacket_); //WF add
+		bind("loadBalanceFlowlet_", &loadBalanceFlowlet_); //WF add
 		srand((unsigned)time(NULL));
 	} 
 	virtual int classify(Packet* p) {
@@ -208,7 +209,7 @@ public:
 	        fprintf(stderr,"Can't open file %s!\n","debug.tr");
 	    	// return(TCL_ERROR);
 	    } else {
-			fprintf(fpResult, "%lf-Node-%d-(%d->%d): size=%d key=%d randSalt=%u ecmpHashKey=%u maxslot_=%d cl=%d\n"
+			fprintf(fpResult, "%lf-Node-%d-(%d->%d): size=%d key=%d randSalt=%u ecmpHashKey=%u maxslot_=%d cl=%d flowlet=%u\n"
 			,Scheduler::instance().clock()
 			,nodeID_
 			,iph->src_
@@ -219,6 +220,7 @@ public:
 			,cmnh->ecmpHashKey
 			,maxslot_
 			,cl
+			,loadBalanceFlowlet_
 			);
 			fclose(fpResult);
 		}

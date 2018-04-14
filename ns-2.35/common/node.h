@@ -185,6 +185,8 @@ protected:
 	unsigned randSalt_;////CG add for ECMP salt
 
 	unsigned loadBalancePerPacket_;	//WF add for load-balancing based on random route on packet
+	unsigned loadBalanceFlowlet_;
+
 
 #ifdef HAVE_STL
 	NixNode* nixnode_;   // used for nix routing (on-demand source routing for simulator performance)
