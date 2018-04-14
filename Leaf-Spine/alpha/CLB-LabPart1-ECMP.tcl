@@ -40,8 +40,8 @@ set fFCT "InputFlow-FCT-$serverNumber-$flowNumber.tr"
 
 # set failureNumber 3
 
-Node set loadBalancePerPacket_ 1
-Node set loadBalanceFlowlet_ 1
+Node set loadBalancePerPacket_ 0
+Node set loadBalanceFlowlet_ 0
 Node set multiPath_ 1
 $ns set staticRoute_ 1
 

@@ -398,7 +398,7 @@ Node instproc init args {\n\
 eval $self next $args\n\
 \n\
 $self instvar id_ agents_ dmux_ neighbor_ rtsize_ address_ \\\n\
-nodetype_ multiPath_ ns_ rtnotif_ ptnotif_ mtRouting_ fLayer_ sLeaf_Conga_ randSalt_ loadBalancePerPacket_\n\
+nodetype_ multiPath_ ns_ rtnotif_ ptnotif_ mtRouting_ fLayer_ sLeaf_Conga_ randSalt_ loadBalancePerPacket_ loadBalanceFlowlet_\n\
 \n\
 set ns_ [Simulator instance]\n\
 set id_ [Node getid]\n\
@@ -426,6 +426,7 @@ set fLayer_ [$class set fLayer_]\n\
 set sLeaf_Conga_ [$class set sLeaf_Conga_]\n\
 set randSalt_ [$class set randSalt_]\n\
 set loadBalancePerPacket_ [$class set loadBalancePerPacket_]\n\
+set loadBalanceFlowlet_ [$class set loadBalanceFlowlet_]\n\
 }\n\
 \n\
 Node instproc mk-default-classifier {} {\n\
@@ -573,7 +574,7 @@ $self decr-rtgtable-size\n\
 }\n\
 \n\
 Node instproc init-routing rtObject {\n\
-$self instvar multiPath_ routes_ rtObject_ fLayer_ sLeaf_Conga_ randSalt_ loadBalancePerPacket_\n\
+$self instvar multiPath_ routes_ rtObject_ fLayer_ sLeaf_Conga_ randSalt_ loadBalancePerPacket_ loadBalanceFlowlet_\n\
 set nn [$class set nn_]\n\
 for {set i 0} {$i < $nn} {incr i} {\n\
 set routes_($i) 0\n\
@@ -642,8 +643,7 @@ $classifier_ set-bandwidth $bandwidth\n\
 \n\
 \n\
 Node instproc add-routes {id ifs} {\n\
-$self instvar classifier_ multiPath_ routes_ mpathClsfr_ fLayer_ sLeaf_Conga_ randSalt_ loadBalancePerPacket_ \\\n\
-loadBalanceFlowlet_\n\
+$self instvar classifier_ multiPath_ routes_ mpathClsfr_ fLayer_ sLeaf_Conga_ randSalt_ loadBalancePerPacket_ loadBalanceFlowlet_\n\
 \n\
 if !$multiPath_ {\n\
 if {[llength $ifs] > 1} {\n\
@@ -661,13 +661,12 @@ set routes_($id) 1\n\
 } else {\n\
 if ![info exists mpathClsfr_($id)] {\n\
 set mpathClsfr_($id) [new Classifier/MultiPath]\n\
-$mpathClsfr_($id) instvar fLayer_ nodeID_ sLeaf_Conga_ randSalt_ loadBalancePerPacket_  loadBalanceFlowlet_\n\
+$mpathClsfr_($id) instvar fLayer_ nodeID_ sLeaf_Conga_ randSalt_ loadBalancePerPacket_  \n\
 set fLayer_ [$self set fLayer_] \n\
 set sLeaf_Conga_ [$self set sLeaf_Conga_] \n\
 set nodeID_ [$self set address_]\n\
 set randSalt_ [$self set randSalt_]\n\
 set loadBalancePerPacket_ [$self set loadBalancePerPacket_]\n\
-set loadBalanceFlowlet_ [$self set loadBalanceFlowlet_]\n\
 \n\
 if {$routes_($id) > 0} {\n\
 assert \"$routes_($id) == 1\"\n\
@@ -19447,7 +19446,6 @@ Classifier/MultiPath set randSalt_ 0\n\
 Classifier/MultiPath set nodeID_ -1\n\
 Classifier/MultiPath set sLeaf_Conga_ 0\n\
 Classifier/MultiPath set loadBalancePerPacket_ 0\n\
-Classifier/MultiPath set loadBalanceFlowlet_ 0\n\
 Classifier/Hash/Dest set sLeaf_Conga_ 0\n\
 Classifier/Hash/Dest set nodeID_ -1\n\
 Classifier/Hash/Dest set minHost_ -1\n\
