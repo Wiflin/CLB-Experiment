@@ -5,7 +5,7 @@
 ## # Todoist
 
 1. ECMP Part : 
-	- Change to a new **Expansible** Leaf-Spine Top Structure
+	- ~~Change to a new **Expansible** Leaf-Spine Top Structure~~
 
 2. Per-Packet Part : 
 	- Change **Duplicate Threshold** to accommodate the re-order packets
@@ -17,3 +17,13 @@
 
 
 ## # CLB
+
+1. different network status
+	- high speed & low latency
+	- high speed & high latency
+	- low speed & low latency
+	- low speed & high latency
+
+2. different user scene
+	- data mining
+	- web search

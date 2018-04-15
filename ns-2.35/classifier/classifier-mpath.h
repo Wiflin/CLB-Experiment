@@ -57,7 +57,7 @@
 struct FlowletRecord
 {
 	uint16_t	flowHashKey;
-	uint16_t	flowChosenKey;
+	int 		flowChosenKey;
 	double		timeStamp;
 };
 
