@@ -8,7 +8,7 @@ set ns [new Simulator]
 
 set rwndSize 				[lindex $argv 0]
 #rwnd size in packets
-set intialCwnd 16
+set intialCwnd 8
 
 set linkDelay 				[lindex $argv 1]
 #linkDelay in ms
@@ -56,6 +56,9 @@ set fFCT "InputFlow-FCT-$serverNumber-$flowNumber.tr"
 
 # set failureNumber 3
 
+# Agent/TCP/FullTcp/Sack set sack_rtx_cthresh_ 1000;
+Agent/TCP/FullTcp set tcprexmtthresh_ 1000
+Agent/TCP set IF_PRINT_SEQTIMELINE 1
 Node set loadBalancePerPacket_ 1
 Node set multiPath_ 1
 $ns set staticRoute_ 1
@@ -82,11 +85,11 @@ set queueSpineSwitch 600
 set queueLeafSwitch 600
 
 set queueManage "DropTail"
-# set ecnThresholdPortion 0.3
+set ecnThresholdPortion 0.3
 
 # # set sendBufferSize [expr 10*$rwndSize]
 set sendBufferSize	4000
-# set ecnThresholdPortionLeaf 0.3
+set ecnThresholdPortionLeaf 0.3
 
 
 
@@ -97,10 +100,10 @@ for {set i 0} {$i<$accessSwitchNumber} {incr i} {
 		set k [expr $i*$leafDownPortNumber+$j]
 		$ns simplex-link $n($k) $sLeaf($i) $linkAccessRate [expr $linkDelay*1E-3]s $queueManage
 		$ns queue-limit $n($k) $sLeaf($i) $sendBufferSize
-		# $ns ecn-threshold $n($k) $sLeaf(0,$i) [expr int($queueLeafSwitch*$ecnThresholdPortionLeaf)]
+		$ns ecn-threshold $n($k) $sLeaf($i) [expr int($queueLeafSwitch*$ecnThresholdPortionLeaf)]
 		$ns simplex-link $sLeaf($i) $n($k) $linkAccessRate [expr $linkDelay*1E-3]s $queueManage
 		$ns queue-limit $sLeaf($i) $n($k) $queueLeafSwitch
-		# $ns ecn-threshold $sLeaf(0,$i) $n($k) [expr int($queueLeafSwitch*$ecnThresholdPortionLeaf)]
+		$ns ecn-threshold $sLeaf($i) $n($k) [expr int($queueLeafSwitch*$ecnThresholdPortionLeaf)]
 		puts "node([$n($k) set address_]) <-> leaf($i)([$sLeaf($i) set address_]) "
 
 		set queue1 [[$ns link $sLeaf($i) $n($k)] queue]
@@ -125,10 +128,10 @@ for {set i 0} {$i<$accessSwitchNumber} {incr i} {
 		set k [expr ($i*$leafUpPortNumber+$j)%$topSwitchNumber]
 			$ns simplex-link $sLeaf($i) $sSpine($k) $linkRate [expr $linkDelay*1E-3]s $queueManage	
 			$ns queue-limit $sLeaf($i) $sSpine($k) $queueLeafSwitch
-			# $ns ecn-threshold $sLeaf($i) $sSpine($k) [expr int($queueSpineSwitch*$ecnThresholdPortion)]
+			$ns ecn-threshold $sLeaf($i) $sSpine($k) [expr int($queueSpineSwitch*$ecnThresholdPortion)]
 			$ns simplex-link $sSpine($k) $sLeaf($i) $linkRate [expr $linkDelay*1E-3]s $queueManage
 			$ns queue-limit $sSpine($k) $sLeaf($i) $queueSpineSwitch
-			# $ns ecn-threshold $sSpine($k) $sLeaf($i) [expr int($queueSpineSwitch*$ecnThresholdPortion)]
+			$ns ecn-threshold $sSpine($k) $sLeaf($i) [expr int($queueSpineSwitch*$ecnThresholdPortion)]
 
 			puts "leaf($i)([$sLeaf($i) set address_]) <-> spine($k)([$sSpine($k) set address_])"
 

@@ -144,15 +144,15 @@ int MultiPathForwarder::classify(Packet* p) {
 					it->flowChosenKey = key;
 					it->timeStamp = clk;
 					
-					FILE* fpResult=fopen("debug.tr","a+");
-					if(fpResult==NULL)
-				    {
-				        fprintf(stderr,"Can't open file %s!\n","debug.tr");
-				    	// return(TCL_ERROR);
-				    } else {
-						fprintf(fpResult, "He choose a new route. \n");
-						fclose(fpResult);
-					}
+					// FILE* fpResult=fopen("debug.tr","a+");
+					// if(fpResult==NULL)
+				 //    {
+				 //        fprintf(stderr,"Can't open file %s!\n","debug.tr");
+				 //    	// return(TCL_ERROR);
+				 //    } else {
+					// 	fprintf(fpResult, "He choose a new route. \n");
+					// 	fclose(fpResult);
+					// }
 
 				}
 				break;
@@ -170,27 +170,27 @@ int MultiPathForwarder::classify(Packet* p) {
 			FlowletTable.push_back(flow);
 			FILE* fpResult=fopen("debug.tr","a+");
 		}
-		FILE* fpResult=fopen("debug.tr","a+");
-		if(fpResult==NULL)
-	    {
-	        fprintf(stderr,"Can't open file %s!\n","debug.tr");
-	    	// return(TCL_ERROR);
-	    } else {
-			fprintf(fpResult, "%lf-Node-%d-(%d->%d): size=%d key=%d randSalt=%u ecmpHashKey=%u maxslot_=%d cl=%%d flowlet=%u\n"
-			,Scheduler::instance().clock()
-			,nodeID_
-			,iph->src_
-			,iph->dst_
-			,cmnh->size_
-			,key
-			,randSalt_
-			,cmnh->ecmpHashKey
-			,maxslot_
-			// ,cl
-			,loadBalanceFlowlet_
-			);
-			fclose(fpResult);
-		}
+		// FILE* fpResult=fopen("debug.tr","a+");
+		// if(fpResult==NULL)
+	 //    {
+	 //        fprintf(stderr,"Can't open file %s!\n","debug.tr");
+	 //    	// return(TCL_ERROR);
+	 //    } else {
+		// 	fprintf(fpResult, "%lf-Node-%d-(%d->%d): size=%d key=%d randSalt=%u ecmpHashKey=%u maxslot_=%d cl=%%d flowlet=%u\n"
+		// 	,Scheduler::instance().clock()
+		// 	,nodeID_
+		// 	,iph->src_
+		// 	,iph->dst_
+		// 	,cmnh->size_
+		// 	,key
+		// 	,randSalt_
+		// 	,cmnh->ecmpHashKey
+		// 	,maxslot_
+		// 	// ,cl
+		// 	,loadBalanceFlowlet_
+		// 	);
+		// 	fclose(fpResult);
+		// }
 
 	}
 	else /////For ECMP
