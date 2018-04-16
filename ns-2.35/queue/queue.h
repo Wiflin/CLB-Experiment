@@ -194,6 +194,10 @@ protected:
 	FILE * fpFlowPath;///CG add
 	vector < flowInfo > FlowTable;
 
+	int ifMoniterPathTrace_;
+	void printPathTrace(Packet* pkt);
+	FILE * fpPathTrace;
+
 	int ifTagTimeStamp_;//CG add
 
 	int ifHavePrint;///CG add

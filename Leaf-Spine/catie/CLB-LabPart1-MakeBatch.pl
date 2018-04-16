@@ -16,7 +16,7 @@ my $linkAccessRate='1G';
 # my $switchLayer=3;
 
 # my $failureNumber=3;
-my $flowPerHost=1000;
+my $flowPerHost=1;
 
 my $subFlowNum=8;
 
@@ -160,7 +160,9 @@ for(my $i=0;$i<$serverPerBiNetwork;$i++)
 
 		my $interval = (0-$avgInterval) * log(rand());
 		$startTime[$i]=$startTime[$i]+$interval;
-		fTraffic->print("$i $dst[$i][$z] $startTime[$i] $size[$i][$z]\n");
+		# fTraffic->print("$i $dst[$i][$z] $startTime[$i] $size[$i][$z]\n");
+
+		fTraffic->print("$i $dst[$i][$z] 1.000000 1000000\n");
 		# print "$src $dst $startTime $size[$i]\n";
 		my $flowID=$i*$flowPerHost+$z;
 		print fResultEachNormalFCT "$flowID\t$size[$i][$z]\n";

@@ -96,7 +96,7 @@ Queue::Queue() : Connector(), blocked_(0), unblock_on_resume_(1), qh_(*this),
 		 last_change_(0), /* temporarily NULL */
 		 old_util_(0), period_begin_(0), cur_util_(0), buf_slot_(0),
 		 util_buf_(NULL),ifMoniterQueueLen_(0),ifMoniterE2EDelay_(0),
-		 ifMoniterFlowPath_(0),
+		 ifMoniterFlowPath_(0),ifMoniterPathTrace_(0),
 		 ifTagTimeStamp_(0),ifHavePrint(0)
 {
 	bind("limit_", &qlim_);
@@ -150,6 +150,12 @@ int Queue::command(int argc, const char*const* argv)
 			system("exec rm -r -f FlowPath/*");
 			return TCL_OK;
 		}
+		if (strcmp(argv[1], "monitor-PathTrace") == 0) { /////WF add
+			ifMoniterPathTrace_=1;
+			mkdir("PathTrace",0777);
+			system("exec rm -r -f PathTrace/*");
+			return TCL_OK;
+		}
 	}
 	return Connector::command(argc, argv);
 }
@@ -159,6 +165,8 @@ void Queue::recv(Packet* p, Handler*)
 {
 	printDelayTimeline(p);////CG add
 	printFlowPath(p);///CG add
+	printPathTrace(p);///WF add
+
 	if(ifTagTimeStamp_==1)
 	{
 		// printf("%lf-queue(%d-%d): tag timestamp\n",
@@ -398,28 +406,28 @@ void Queue::printFlowPath(Packet* pkt)
     hdr_ip *iph = hdr_ip::access(pkt);
     hdr_cmn* cmnh = hdr_cmn::access(pkt);
 
-// it means just count the what flow get pass by the node
-#define DO_NOT_COUNT_FLOW_SIZE
-#ifdef DO_NOT_COUNT_FLOW_SIZE
-	vector < flowInfo >::iterator it;
-	for(it = FlowTable.begin (); it != FlowTable.end (); ++it)
-	{
-		if( it->srcAddr==iph->src().addr_
-			&& it->srcPort==iph->src().port_
-			&& it->dstAddr==iph->dst().addr_
-			&& it->dstPort==iph->dst().port_)
+	// it means just count the what flow get pass by the node
+	#define DO_NOT_COUNT_FLOW_SIZE
+	#ifdef DO_NOT_COUNT_FLOW_SIZE
+		vector < flowInfo >::iterator it;
+		for(it = FlowTable.begin (); it != FlowTable.end (); ++it)
 		{
-		  return;
+			if( it->srcAddr==iph->src().addr_
+				&& it->srcPort==iph->src().port_
+				&& it->dstAddr==iph->dst().addr_
+				&& it->dstPort==iph->dst().port_)
+			{
+			  return;
+			}
 		}
-	}
 
-	struct flowInfo tmp_map;
-	tmp_map.srcAddr=iph->src().addr_;
-	tmp_map.srcPort=iph->src().port_;
-	tmp_map.dstAddr=iph->dst().addr_;
-	tmp_map.dstPort=iph->dst().port_;
-	FlowTable.push_back (tmp_map);
-#endif
+		struct flowInfo tmp_map;
+		tmp_map.srcAddr=iph->src().addr_;
+		tmp_map.srcPort=iph->src().port_;
+		tmp_map.dstAddr=iph->dst().addr_;
+		tmp_map.dstPort=iph->dst().port_;
+		FlowTable.push_back (tmp_map);
+	#endif
 
 	char str1[128];
 	memset(str1,0,128*sizeof(char));
@@ -442,4 +450,36 @@ void Queue::printFlowPath(Packet* pkt)
 		,cmnh->size_);
 
     fclose(fpFlowPath);
+}
+
+
+
+void Queue::printPathTrace(Packet* pkt)
+{
+	if(!ifMoniterPathTrace_)
+    {
+        return;
+    }
+    hdr_ip *iph = hdr_ip::access(pkt);
+    hdr_cmn* cmnh = hdr_cmn::access(pkt);
+
+    char str1[128];
+	memset(str1,0,128*sizeof(char));
+	sprintf(str1,"PathTrace/Flowid-%d.tr"
+		,cmnh->flowID);
+
+	fpPathTrace=fopen(str1,"a");
+	if(fpPathTrace==NULL)
+	{
+		fprintf(stderr,"%s, Can't open file %s!\n",strerror(errno),str1);
+	}
+    
+    fprintf(fpPathTrace,"%.9f\t%d-%d %u\n",
+        Scheduler::instance().clock()
+        ,last_hop
+        ,next_hop
+		,cmnh->size_);
+
+    fclose(fpPathTrace);
+
 }

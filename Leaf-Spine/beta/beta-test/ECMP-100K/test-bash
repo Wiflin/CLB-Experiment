@@ -1,0 +1,17 @@
+#!/bin/bash 
+rm -rf FlowPath
+rm -f InputFlow-BindFlowID*
+rm -f InputFlow-FCT*
+rm -f tmp
+rm -f debug.tr
+rm -f All-Packet-Debug.tr
+
+if [ "$1"x == "clean"x ];then
+	exit
+fi
+
+if [ "$2"x != "clean"x ];then
+	rand=`date '+%s'`
+	echo "ns $1  10000 0.02 4 10G 10 1G 40 $rand >tmp"
+	ns $1  10000 0.02 2 10G 40 1G 40 $rand >tmp 
+fi

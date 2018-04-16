@@ -1,4 +1,4 @@
-if { $argc != 8 } {
+if { $argc != 9 } {
        puts "Arguments: rwndSize linkDelay switchPortNumber linkRate switchDownPortNumber linkAccessRate flowNumber randSeed"
        exit
 }
@@ -54,7 +54,7 @@ set fTraffic [open InputFlow-$serverNumber-[expr $flowNumber].tr r]
 
 # METHOD: PerPacket
 if {$method == "Packet"} { 
-	set intialCwnd 8
+	set intialCwnd 100
 	Agent/TCP/FullTcp/Sack set sack_rtx_cthresh_ 1000;
 	Agent/TCP/FullTcp set tcprexmtthresh_ 1000
 	Agent/TCP set IF_PRINT_SEQTIMELINE 1
@@ -62,12 +62,12 @@ if {$method == "Packet"} {
 
 # METHOD: PerFlowlet
 } elseif {$method == "Flowlet"} {
-	set intialCwnd 8
+	set intialCwnd 100
 	Node set loadBalanceFlowlet_ 1
 
 # METHOD: ECMP
 } elseif {$method == "ECMP"} {
-	set intialCwnd 8
+	set intialCwnd 100
 
 # ERROR METHOD
 } else {
@@ -129,13 +129,13 @@ for {set i 0} {$i<$accessSwitchNumber} {incr i} {
 
 		set queue1 [[$ns link $sLeaf($i) $n($k)] queue]
 		# $queue1 monitor-E2EDelay
-		# $queue1 monitor-QueueLen
-		# $queue1 monitor-Drop
+		$queue1 monitor-QueueLen
+		$queue1 monitor-Drop
 		$queue1 monitor-FlowPath
 
 		set queue2 [[$ns link $n($k) $sLeaf($i)] queue]
-		# $queue2 monitor-QueueLen
-		# $queue2 monitor-Drop
+		$queue2 monitor-QueueLen
+		$queue2 monitor-Drop
 		$queue2 monitor-FlowPath
 	}
 }
@@ -157,15 +157,15 @@ for {set i 0} {$i<$accessSwitchNumber} {incr i} {
 			puts "leaf($i)([$sLeaf($i) set address_]) <-> spine($k)([$sSpine($k) set address_])"
 
 			set queue1 [[$ns link $sSpine($k) $sLeaf($i)] queue]
-			# $queue1 monitor-QueueLen
-			# $queue1 monitor-Drop
+			$queue1 monitor-QueueLen
+			$queue1 monitor-Drop
 			$queue1 monitor-FlowPath
 
 			set queue2 [[$ns link  $sLeaf($i) $sSpine($k)] queue]
 			# $queue2 tag-timestamp
-			# $queue2 monitor-QueueLen
+			$queue2 monitor-QueueLen
 			$queue2 monitor-FlowPath
-			# $queue2 monitor-Drop
+			$queue2 monitor-Drop
 
 			# what is this means?
 			# if {$k==0 && $failureNumber>0 && $failureNumber<3} {

@@ -51,6 +51,7 @@
 #include <math.h>
 #include <time.h>  
 #include <vector>
+#include <map>
 #include "crc16.h"  ////CG add
 #include "classifier.h"
 
@@ -69,6 +70,8 @@ private:
 	int ns_;
 	CRC_Generator crc16;  ///CG add
 	vector < FlowletRecord > FlowletTable;
+	int whereIChoose;
+	static map < int, int > RRTable;
 protected:
 	virtual int command(int argc, const char*const* argv);//CG add
 };
