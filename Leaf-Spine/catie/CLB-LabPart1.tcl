@@ -102,8 +102,8 @@ for {set i 0} {$i<$topSwitchNumber} {incr i} {
 	$sSpine($i) enable-salt
 }
 
-set queueSpineSwitch 600
-set queueLeafSwitch 600
+set queueSpineSwitch 10000
+set queueLeafSwitch 10000
 
 set queueManage "DropTail"
 set ecnThresholdPortion 0.3
@@ -121,10 +121,10 @@ for {set i 0} {$i<$accessSwitchNumber} {incr i} {
 		set k [expr $i*$leafDownPortNumber+$j]
 		$ns simplex-link $n($k) $sLeaf($i) $linkAccessRate [expr $linkDelay*1E-3]s $queueManage
 		$ns queue-limit $n($k) $sLeaf($i) $sendBufferSize
-		$ns ecn-threshold $n($k) $sLeaf($i) [expr int($queueLeafSwitch*$ecnThresholdPortionLeaf)]
+		# $ns ecn-threshold $n($k) $sLeaf($i) [expr int($queueLeafSwitch*$ecnThresholdPortionLeaf)]
 		$ns simplex-link $sLeaf($i) $n($k) $linkAccessRate [expr $linkDelay*1E-3]s $queueManage
 		$ns queue-limit $sLeaf($i) $n($k) $queueLeafSwitch
-		$ns ecn-threshold $sLeaf($i) $n($k) [expr int($queueLeafSwitch*$ecnThresholdPortionLeaf)]
+		# $ns ecn-threshold $sLeaf($i) $n($k) [expr int($queueLeafSwitch*$ecnThresholdPortionLeaf)]
 		puts "node([$n($k) set address_]) <-> leaf($i)([$sLeaf($i) set address_]) "
 
 		set queue1 [[$ns link $sLeaf($i) $n($k)] queue]
@@ -132,11 +132,13 @@ for {set i 0} {$i<$accessSwitchNumber} {incr i} {
 		$queue1 monitor-QueueLen
 		$queue1 monitor-Drop
 		$queue1 monitor-FlowPath
+		$queue1 monitor-PathTrace
 
 		set queue2 [[$ns link $n($k) $sLeaf($i)] queue]
 		$queue2 monitor-QueueLen
 		$queue2 monitor-Drop
 		$queue2 monitor-FlowPath
+		$queue2 monitor-PathTrace
 	}
 }
 
@@ -149,10 +151,10 @@ for {set i 0} {$i<$accessSwitchNumber} {incr i} {
 		set k [expr ($i*$leafUpPortNumber+$j)%$topSwitchNumber]
 			$ns simplex-link $sLeaf($i) $sSpine($k) $linkRate [expr $linkDelay*1E-3]s $queueManage	
 			$ns queue-limit $sLeaf($i) $sSpine($k) $queueLeafSwitch
-			$ns ecn-threshold $sLeaf($i) $sSpine($k) [expr int($queueSpineSwitch*$ecnThresholdPortion)]
+			# $ns ecn-threshold $sLeaf($i) $sSpine($k) [expr int($queueSpineSwitch*$ecnThresholdPortion)]
 			$ns simplex-link $sSpine($k) $sLeaf($i) $linkRate [expr $linkDelay*1E-3]s $queueManage
 			$ns queue-limit $sSpine($k) $sLeaf($i) $queueSpineSwitch
-			$ns ecn-threshold $sSpine($k) $sLeaf($i) [expr int($queueSpineSwitch*$ecnThresholdPortion)]
+			# $ns ecn-threshold $sSpine($k) $sLeaf($i) [expr int($queueSpineSwitch*$ecnThresholdPortion)]
 
 			puts "leaf($i)([$sLeaf($i) set address_]) <-> spine($k)([$sSpine($k) set address_])"
 
@@ -160,13 +162,15 @@ for {set i 0} {$i<$accessSwitchNumber} {incr i} {
 			$queue1 monitor-QueueLen
 			$queue1 monitor-Drop
 			$queue1 monitor-FlowPath
+			$queue1 monitor-PathTrace
 
 			set queue2 [[$ns link  $sLeaf($i) $sSpine($k)] queue]
 			# $queue2 tag-timestamp
 			$queue2 monitor-QueueLen
 			$queue2 monitor-FlowPath
 			$queue2 monitor-Drop
-
+			$queue2 monitor-PathTrace
+			
 			# what is this means?
 			# if {$k==0 && $failureNumber>0 && $failureNumber<3} {
 			# 	$ns link-lossmodel $em $sLeaf($i) $sSpine($k)
@@ -260,8 +264,8 @@ Agent/TCP set maxRto_	3
 Agent/TCP set max_ssthresh_ 200
 
 # Agent/TCPSink set ecn_syn_ true
-Agent/TCP set ecn_ 1
-Agent/TCP set old_ecn_ 1
+# Agent/TCP set ecn_ 1
+# Agent/TCP set old_ecn_ 1
 
 set STARTTIMEOFFSET 2000
 set inputFlowStartTime [clock seconds]
@@ -328,7 +332,7 @@ for {set k 0} {$k<$flowNumber} {incr k} {
 
 		# $tcp($currentInsertingConnID) monitor-spare-window
 
-		# $tcp($currentInsertingConnID) monitor-Sequence
+		$tcp($currentInsertingConnID) monitor-Sequence
 		# $tcpsink($currentInsertingConnID) monitor-Sequence
 
 		$tcp($currentInsertingConnID) no-syn sender

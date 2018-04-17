@@ -120,6 +120,7 @@ int MultiPathForwarder::classify(Packet* p) {
 	}
 	else if(loadBalancePerPacket_ == 1)
 	{
+		// key = rand();
 		key = RRTable[nodeID_] = (RRTable[nodeID_] + 1) % (maxslot_+1);
 	}
 	else if(loadBalanceFlowlet_ == 1)
@@ -257,19 +258,19 @@ int MultiPathForwarder::classify(Packet* p) {
 	/*printf("%lf-Node-%d: maxslot=%d, key=%d, cl=%d, sLeaf_Conga_=%d. randSalt_=%u\n"
 		,Scheduler::instance().clock(),nodeID_,maxslot_,key,cl,sLeaf_Conga_,randSalt_);*/
 	
-	// #define All-Packet-Debug
-	// #ifdef All-Packet-Debug
-	// FILE* fpResult=fopen("All-Packet-Debug.tr","a+");
-	// if(fpResult==NULL)
- //    {
- //        fprintf(stderr,"Can't open file %s!\n","debug.tr");
- //    	return(TCL_ERROR);
- //    } else {
-	// 	fprintf(fpResult, "%p %lf-Node-%d-(%d->%d):flowid=%d size=%d key=%d randSalt=%u ecmpHashKey=%u maxslot_=%d cl=%d flowlet=%u\n"
-	// 	,this,Scheduler::instance().clock(),nodeID_,iph->src_,iph->dst_,cmnh->flowID,cmnh->size_,key,randSalt_,cmnh->ecmpHashKey,maxslot_,cl,loadBalanceFlowlet_);
-	// 	fclose(fpResult);
-	// }
-	// #endif
+	#define All-Packet-Debug
+	#ifdef All-Packet-Debug
+	FILE* fpResult=fopen("All-Packet-Debug.tr","a+");
+	if(fpResult==NULL)
+    {
+        fprintf(stderr,"Can't open file %s!\n","debug.tr");
+    	return(TCL_ERROR);
+    } else {
+		fprintf(fpResult, "%p %lf-Node-%d-(%d->%d):flowid=%d size=%d key=%d randSalt=%u ecmpHashKey=%u maxslot_=%d cl=%d flowlet=%u\n"
+		,this,Scheduler::instance().clock(),nodeID_,iph->src_,iph->dst_,cmnh->flowID,cmnh->size_,key,randSalt_,cmnh->ecmpHashKey,maxslot_,cl,loadBalanceFlowlet_);
+		fclose(fpResult);
+	}
+	#endif
 
 	if(slot_[cl] == 0)
 	{
