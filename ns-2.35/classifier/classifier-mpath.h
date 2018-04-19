@@ -54,6 +54,7 @@
 #include <map>
 #include "crc16.h"  ////CG add
 #include "classifier.h"
+#include "clb/conga.h"
 
 struct FlowletRecord
 {
@@ -61,6 +62,8 @@ struct FlowletRecord
 	int 		flowChosenKey;
 	double		timeStamp;
 };
+
+class Node;
 
 class MultiPathForwarder : public Classifier {
 public:
@@ -70,10 +73,14 @@ private:
 	int ns_;
 	CRC_Generator crc16;  ///CG add
 	vector < FlowletRecord > FlowletTable;
-	int whereIChoose;
-	static map < int, int > RRTable;
+
 protected:
 	virtual int command(int argc, const char*const* argv);//CG add
+
+	int mpath_route(Packet* p);
+	int balance_flowlet(Packet* p);
+	int balance_ecmp(Packet* p);
+
 };
 
 #endif

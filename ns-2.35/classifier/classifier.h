@@ -38,6 +38,10 @@
 #define ns_classifier_h
 
 #include "object.h"
+// #include "node.h"
+#include "clb/conga.h"
+
+class Node;
 
 class Packet;
 
@@ -87,6 +91,9 @@ public:
 	inline int CLB_Node() {return CLB_Node_;}///CG add
 	inline double bandwidth() {return bandwidth_;}////CG add
 
+	int conga_enabled();	//WF add
+	Conga* conga_(); 	//WF add
+
 protected:
 	virtual int getnxt(NsObject *);
 	virtual int command(int argc, const char*const* argv);
@@ -119,6 +126,12 @@ protected:
 	CLBFlowClassifier* clb_flow_classifier_;///CG add
 	int ifTunnel;//CG add
 	double bandwidth_;//CG add!
+	
+	Node *n_;		//WF add	/* container node pointer */	
+
+	Conga* conga_instance; //WF add
+
+
 };
 
 #endif

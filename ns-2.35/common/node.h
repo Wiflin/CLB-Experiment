@@ -77,6 +77,8 @@ LIST_HEAD(linklist_head, LinkHead); // declare list head structure
 class Node;
 class NetworkInterface;
 class RoutingModule;
+class Conga;	//WF add
+
 class LinkHead : public Connector {
 public:
 	LinkHead(); 
@@ -164,6 +166,13 @@ public:
 	void set_table_size(int nn);
 	void set_table_size(int level, int csize);
 
+	//WF add 
+	Conga* conga_get_instance() { return conga_; }
+	int conga_enabled() {return conga_enabled_;}
+	int conga_enabled_;
+	//WF add end
+
+
 protected:
 	LIST_ENTRY(Node) entry;  // declare list entry structure
 	int address_;
@@ -181,6 +190,10 @@ protected:
 
 	// pointer to head of rtmodule chain
 	RoutingModule* rtnotif_;
+
+	// pointer to Conga congestion aware module
+	Conga* conga_;	//WF add 
+	// unsigned loadBalanceConga_; //WF add
 
 	unsigned randSalt_;////CG add for ECMP salt
 

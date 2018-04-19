@@ -72,7 +72,8 @@ INCLUDES = \
 	-I./diffusion3/lib/nr -I./diffusion3/ns \
 	-I./diffusion3/filter_core -I./asim/ -I./qs \
 	-I./diffserv -I./satellite \
-	-I./wpan
+	-I./wpan \
+	-I./clb
 
 
 LIB	= \
@@ -337,6 +338,7 @@ OBJ_CC = \
 	apps/pbc.o \
 	queue/cqrr.o queue/hcf.o apps/ftp-sink.o tools/lognormal.o tools/lognormal-sink.o tools/crc16.o apps/clb_tunnel.o apps/conga.o apps/clb_flow_classify.o\
 	link/dre.o \
+	clb/conga.o \
 	$(OBJ_STL)
 
 

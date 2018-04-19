@@ -1,7 +1,0 @@
-#!/bin/bash
-
-for i in {1..10}
-do 
-	./test-bash CLB-LabPart1.tcl
-	python3 ../untitled0.py InputFlow-FCT-80-40.tr >>result
-done

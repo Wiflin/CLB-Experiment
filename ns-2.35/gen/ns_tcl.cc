@@ -399,7 +399,7 @@ eval $self next $args\n\
 \n\
 $self instvar id_ agents_ dmux_ neighbor_ rtsize_ address_ \\\n\
 nodetype_ multiPath_ ns_ rtnotif_ ptnotif_ mtRouting_ fLayer_ sLeaf_Conga_ randSalt_ loadBalancePerPacket_ \\\n\
-loadBalanceFlowlet_\n\
+loadBalanceFlowlet_ conga_enabled_\n\
 \n\
 set ns_ [Simulator instance]\n\
 set id_ [Node getid]\n\
@@ -428,6 +428,7 @@ set sLeaf_Conga_ [$class set sLeaf_Conga_]\n\
 set randSalt_ [$class set randSalt_]\n\
 set loadBalancePerPacket_ [$class set loadBalancePerPacket_]\n\
 set loadBalanceFlowlet_ [$class set loadBalanceFlowlet_]\n\
+set conga_enabled_ [$class set conga_enabled_]\n\
 }\n\
 \n\
 Node instproc mk-default-classifier {} {\n\
@@ -509,6 +510,7 @@ $clsfr install $hook $classifier_\n\
 }\n\
 set mod_assoc_($clsfr) $module\n\
 set classifier_ $clsfr\n\
+$classifier_ attach-node $self\n\
 }\n\
 \n\
 Node instproc install-entry { module clsfr {hook \"\"} } {\n\
@@ -530,6 +532,7 @@ unset hook_assoc_($classifier_)\n\
 }\n\
 set mod_assoc_($clsfr) $module\n\
 set classifier_ $clsfr\n\
+$classifier_ attach-node $self\n\
 }\n\
 \n\
 \n\
@@ -645,7 +648,7 @@ $classifier_ set-bandwidth $bandwidth\n\
 \n\
 Node instproc add-routes {id ifs} {\n\
 $self instvar classifier_ multiPath_ routes_ mpathClsfr_ fLayer_ sLeaf_Conga_ randSalt_ loadBalancePerPacket_ \\\n\
-loadBalanceFlowlet_\n\
+loadBalanceFlowlet_ CONGA_\n\
 \n\
 if !$multiPath_ {\n\
 if {[llength $ifs] > 1} {\n\
@@ -663,13 +666,15 @@ set routes_($id) 1\n\
 } else {\n\
 if ![info exists mpathClsfr_($id)] {\n\
 set mpathClsfr_($id) [new Classifier/MultiPath]\n\
-$mpathClsfr_($id) instvar fLayer_ nodeID_ sLeaf_Conga_ randSalt_ loadBalancePerPacket_  loadBalanceFlowlet_\n\
+$mpathClsfr_($id) instvar fLayer_ nodeID_ sLeaf_Conga_ randSalt_ loadBalancePerPacket_  loadBalanceFlowlet_ CONGA_\n\
 set fLayer_ [$self set fLayer_] \n\
+set CONGA_  [$self set conga_enabled_]\n\
 set sLeaf_Conga_ [$self set sLeaf_Conga_] \n\
 set nodeID_ [$self set address_]\n\
 set randSalt_ [$self set randSalt_]\n\
 set loadBalancePerPacket_ [$self set loadBalancePerPacket_]\n\
 set loadBalanceFlowlet_ [$self set loadBalanceFlowlet_]\n\
+$mpathClsfr_($id) attach-node $self\n\
 \n\
 \n\
 if {$routes_($id) > 0} {\n\
@@ -19444,6 +19449,7 @@ Node set sLeaf_Conga_ 0 \n\
 Node set CLB_Node_ 0 \n\
 Node set BlockSize_N 0 \n\
 Node set BlockSize_P 0 \n\
+Node set conga_enabled_ 0\n\
 \n\
 Classifier/MultiPath set fLayer_ 0\n\
 Classifier/MultiPath set randSalt_ 0\n\
@@ -19451,6 +19457,8 @@ Classifier/MultiPath set nodeID_ -1\n\
 Classifier/MultiPath set sLeaf_Conga_ 0\n\
 Classifier/MultiPath set loadBalancePerPacket_ 0\n\
 Classifier/MultiPath set loadBalanceFlowlet_ 0\n\
+Classifier/MultiPath set CONGA_ 0\n\
+\n\
 Classifier/Hash/Dest set sLeaf_Conga_ 0\n\
 Classifier/Hash/Dest set nodeID_ -1\n\
 Classifier/Hash/Dest set minHost_ -1\n\

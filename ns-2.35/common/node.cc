@@ -104,7 +104,7 @@ int NixRoutingUsed = -1;
 
 Node::Node() : 
 	address_(-1), nodeid_ (-1), namChan_(0),
-	rtnotif_(NULL),
+	rtnotif_(NULL), conga_(NULL), conga_enabled_(0),
 #ifdef HAVE_STL
 	nixnode_(NULL),
 #endif //HAVE_STL
@@ -116,6 +116,8 @@ Node::Node() :
 	bind("randSalt_", &randSalt_);///CG add
 	bind("loadBalancePerPacket_", &loadBalancePerPacket_);
 	bind("loadBalanceFlowlet_", &loadBalanceFlowlet_);
+	// bind("loadBalanceConga_", &loadBalanceConga_);
+	bind("conga_enabled_", &conga_enabled_);
 #ifdef HAVE_STL
 	// Mods for Nix-Vector routing
 	if (NixRoutingUsed < 0)	{
@@ -222,8 +224,21 @@ Node::command(int argc, const char*const* argv)
 			}
 			addNeighbor(node);
 			return TCL_OK;
-		}
+		} 
+	} else if (argc == 4) {
+		if (strcmp(argv[1], "enable-conga") == 0) {
+			if(conga_enabled_ && conga_)
+				return TCL_OK;
+			int topSwitchNumber = atoi(argv[3]);
+			int leafDownPortNumber = atoi(argv[3]);
+			conga_ = new Conga(this, topSwitchNumber, leafDownPortNumber);
+			conga_enabled_ = 1;
+
+			printf("%lf-Node-%d: conga_=%p\n",Scheduler::instance().clock(),address_,conga_);
+			return TCL_OK;
+		}	
 	}
+
 	return ParentNode::command(argc,argv);
 }
 
@@ -330,3 +345,5 @@ Node* Node::get_node_by_address (nsaddr_t id)
 	}
 	return NULL;
 }
+
+

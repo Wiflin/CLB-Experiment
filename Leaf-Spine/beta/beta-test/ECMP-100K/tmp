@@ -1,3 +1,0 @@
-Network Link Status: linkRate = 10G, linkAccessRate = 1G, ratio = 10
-Network Structure Initialized: LeafDownPortNumber(10) LeafUpPortNumber(1)
-Network Structure Initialized: ServerNumber(20) AccessSwitchNumber(2) TopSwitchNumber(1)......

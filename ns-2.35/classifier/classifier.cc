@@ -41,6 +41,7 @@ static const char rcsid[] =
 #include "config.h"
 #include "classifier.h"
 #include "packet.h"
+#include "node.h"
 #include "clb_flow_classify.h"///CG add
 #include "clb_tunnel.h"///CG add
 #include "ip.h"	///CG add
@@ -56,7 +57,8 @@ public:
 
 Classifier::Classifier() : 
 	slot_(0), nslot_(0), maxslot_(-1), shift_(0), mask_(0xffffffff), nsize_(0)
-	, CLB_Node_(0), BlockSize_N_(0), BlockSize_P_(0), ifTunnel(0), bandwidth_(0) 
+	, CLB_Node_(0), BlockSize_N_(0), BlockSize_P_(0), ifTunnel(0), bandwidth_(0)
+	, n_(NULL), conga_instance(NULL)
 {
 	default_target_ = 0;
 
@@ -159,6 +161,13 @@ int Classifier::getnxt(NsObject *nullagent)
  */
 void Classifier::recv(Packet* p, Handler*h)
 {
+	////WF add
+	// record packet if conga flag is set in packet header
+	if (conga_enabled() == 1) 
+	{
+		conga_()->recv(p, this);
+	}
+
 	/////CG add
 	if(CLB_Node_==1 && ifTunnel==0)
 	{
@@ -256,7 +265,7 @@ int Classifier::command(int argc, const char*const* argv)
                                 tcl.result(default_target_->name());
                         return (TCL_OK);
                 }
-        } else if (argc == 3) {
+    } else if (argc == 3) {
 		/*
 		 * $classifier alloc-port nullagent
 		 */
@@ -334,6 +343,15 @@ int Classifier::command(int argc, const char*const* argv)
 				return TCL_ERROR;
 			return TCL_OK;
 		}
+		
+		if (strcmp(argv[1], "attach-node") == 0) {
+			n_ = (Node*)TclObject::lookup(argv[2]);
+			if (n_ == NULL) {
+				tcl.add_errorf("Wrong object name %s",argv[2]);
+				return TCL_ERROR;
+			}
+			return TCL_OK;
+		}
 	} else if (argc == 4) {
 		/*
 		 * $classifier install $slot $node
@@ -350,3 +368,26 @@ int Classifier::command(int argc, const char*const* argv)
 
 void Classifier::set_table_size(int, int)
 {}
+
+
+int Classifier::conga_enabled()
+{
+	if (n_)
+		return n_->conga_enabled_; 
+	return -1;
+}
+
+Conga* Classifier::conga_() 
+{
+	if(conga_instance)
+		return conga_instance;
+
+	if(n_ == NULL) {
+		fprintf(stderr,"Can't get bind Node.\n");
+	}
+
+	if( (conga_instance = n_->conga_get_instance()) == NULL) {
+		fprintf(stderr,"Did not Enable conga!\n");
+	}
+	return conga_instance;
+}

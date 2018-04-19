@@ -616,6 +616,8 @@ Node set sLeaf_Conga_ 0
 Node set CLB_Node_ 0 
 Node set BlockSize_N 0 
 Node set BlockSize_P 0 
+Node set conga_enabled_ 0
+# Node set loadBalanceConga_ 0
 
 Classifier/MultiPath set fLayer_ 0
 Classifier/MultiPath set randSalt_ 0
@@ -623,6 +625,8 @@ Classifier/MultiPath set nodeID_ -1
 Classifier/MultiPath set sLeaf_Conga_ 0
 Classifier/MultiPath set loadBalancePerPacket_ 0
 Classifier/MultiPath set loadBalanceFlowlet_ 0
+Classifier/MultiPath set CONGA_ 0
+
 Classifier/Hash/Dest set sLeaf_Conga_ 0
 Classifier/Hash/Dest set nodeID_ -1
 Classifier/Hash/Dest set minHost_ -1

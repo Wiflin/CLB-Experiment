@@ -54,7 +54,9 @@ static const char rcsid[] =
 #include <time.h>  
 #include "crc16.h"  ////CG add
 #include "classifier.h"
+#include "clb/conga.h" ////WF add
 #include "classifier-mpath.h"
+#include "node.h"
 
 
 static class MultiPathClass : public TclClass {
@@ -65,9 +67,9 @@ public:
 	}
 } class_multipath;
 
-map < int, int > MultiPathForwarder::RRTable = map < int, int >();
 
-MultiPathForwarder::MultiPathForwarder() : ns_(0) {
+
+MultiPathForwarder::MultiPathForwarder() : Classifier(), ns_(0) {
 	bind("fLayer_", &fLayer_);
 	bind("sLeaf_Conga_", &sLeaf_Conga_);
 	bind("nodeID_", &nodeID_);
@@ -77,19 +79,6 @@ MultiPathForwarder::MultiPathForwarder() : ns_(0) {
 	// loadBalanceFlowlet_ = 1;
 	srand((unsigned)time(NULL));
 	
-
-	// FILE* fpResult=fopen("All-Packet-Debug.tr","a+");
-	// if(fpResult==NULL)
- //    {
- //        fprintf(stderr,"Can't open file %s!\n","debug.tr");
- //    	// return(TCL_ERROR);
- //    } else {
-	// 	fprintf(fpResult, "Construct a new classifier! address=%p nodeID=%d RRTable=%d\n",this,nodeID_,RRTable[nodeID_]);
-	// 	fclose(fpResult);
-	// }
-
-	whereIChoose = 0;
-	RRTable[nodeID_] = 0;
 } 
 
 int MultiPathForwarder::classify(Packet* p) {
@@ -120,156 +109,35 @@ int MultiPathForwarder::classify(Packet* p) {
 	}
 	else if(loadBalancePerPacket_ == 1)
 	{
-		// key = rand();
-		key = RRTable[nodeID_] = (RRTable[nodeID_] + 1) % (maxslot_+1);
+		key = rand();
 	}
 	else if(loadBalanceFlowlet_ == 1)
 	{
-		unsigned char F_Tuple[24];
-		memset(F_Tuple,0,24*sizeof(unsigned char));
-		memcpy(F_Tuple,&(iph->src().addr_),sizeof(int32_t));
-		memcpy(F_Tuple+sizeof(int32_t),&(iph->dst().addr_),sizeof(int32_t));
-		memcpy(F_Tuple+2*sizeof(int32_t),&(iph->src().port_),sizeof(int32_t));
-		memcpy(F_Tuple+3*sizeof(int32_t),&(iph->dst().port_),sizeof(int32_t));
-		memcpy(F_Tuple+4*sizeof(int32_t),&(randSalt_),sizeof(int32_t));
-		memcpy(F_Tuple+5*sizeof(int32_t),&(cmnh->ecmpHashKey),sizeof(int32_t));
-
-		uint16_t regionStart=randSalt_%(0x10000);
-
-		// calculate the crc hash key to identify a flow
-		uint16_t crc=crc16.gen_crc16((uint8_t *)F_Tuple,24);
-
-		vector < FlowletRecord >::iterator it;
-		for (it = FlowletTable.begin(); it != FlowletTable.end(); it ++)
-		{
-			if(it->flowHashKey == crc)
-			{
-				
-				// if packet interval is little than the flowlet avg interval,
-				//	just use the old routel; otherwise choose a new route for it
-				double clk = Scheduler::instance().clock();
-				double timestamp = it->timeStamp;
-				double devTime = fabs(clk - timestamp);
-				if(devTime <= 1E-4)
-				{
-					it->timeStamp = clk;
-					key = it->flowChosenKey;
-				}
-				else 
-				{
-					key = rand();
-					it->flowChosenKey = key;
-					it->timeStamp = clk;
-				}
-				break;
-			}
-		}
-		// if the flow has not get in this node, choose a route for it
-		if(it == FlowletTable.end())
-		{
-			key = rand();
-			struct FlowletRecord flow = {
-				.flowHashKey = crc, 
-				.flowChosenKey = key, 
-				.timeStamp = Scheduler::instance().clock()
-			};
-			FlowletTable.push_back(flow);
-			FILE* fpResult=fopen("debug.tr","a+");
-		}
-
+		key = balance_flowlet(p);
 	}
 	else /////For ECMP
 	{
-		unsigned char F_Tuple[24];
-		memset(F_Tuple,0,24*sizeof(unsigned char));
-		memcpy(F_Tuple,&(iph->src().addr_),sizeof(int32_t));
-		memcpy(F_Tuple+sizeof(int32_t),&(iph->dst().addr_),sizeof(int32_t));
-		memcpy(F_Tuple+2*sizeof(int32_t),&(iph->src().port_),sizeof(int32_t));
-		memcpy(F_Tuple+3*sizeof(int32_t),&(iph->dst().port_),sizeof(int32_t));
-		memcpy(F_Tuple+4*sizeof(int32_t),&(randSalt_),sizeof(int32_t));
-		memcpy(F_Tuple+5*sizeof(int32_t),&(cmnh->ecmpHashKey),sizeof(int32_t));
-
-		// unsigned char F_Tuple[8];
-		// memset(F_Tuple,0,8*sizeof(unsigned char));
-		// memcpy(F_Tuple,&(randSalt_),sizeof(randSalt_));
-		// memcpy(F_Tuple+sizeof(int32_t),&(cmnh->ecmpHashKey),sizeof(int32_t));
-
-		// unsigned char F_Tuple[8];
-		// memset(F_Tuple,0,8*sizeof(unsigned char));
-		// memcpy(F_Tuple,&(cmnh->ecmpHashKey),sizeof(int32_t));
-		// memcpy(F_Tuple+sizeof(int32_t),&(randSalt_),sizeof(int32_t));
-
-		uint16_t regionStart=randSalt_%(0x10000);
-
-		uint16_t crc=crc16.gen_crc16((uint8_t *)F_Tuple,24);
-
-		uint16_t regionOffSet=(crc-regionStart+(0x10000))%0x10000;
-
-		key=(int) regionOffSet/((0x10000)/(maxslot_+1));
-
-
-		////Hack for debug mode
-		if(cmnh->ecmpHashKey==-1)
-		{
-			key=0;
-		}
-		else if(cmnh->ecmpHashKey==-2)
-		{
-			key=1;
-		}
-
-		key=(int) cmnh->ecmpHashKey/((0x10000)/(maxslot_+1));
-		
-
-		// if(maxslot_>=1)
-		// {
-		// 	// printf("====srcIP|dstIP|srcPort|dstPort|randSalt|ecmpHashKey(DEC)====\n");
-		// 	// printf("%d|%d|%d|%d|%u|%u\n",iph->src().addr_,iph->dst().addr_,iph->src().port_,iph->dst().port_,randSalt_,cmnh->ecmpHashKey);
-
-		// 	// printf("====randSalt|ecmpHashKey(HEX)====\n");
-		// 	// for(int i=0;i<8;i++)
-		// 	// {
-		// 	// 	if(i!=0&&i%4==0)
-		// 	// 	{
-		// 	// 		printf("|");
-		// 	// 	}
-		// 	// 	printf("%02X",F_Tuple[i]);
-		// 	// }
-		// 	// printf("\n");
-
-		// }
-		
-
-		/*int offSet=0;
-		if(maxslot_>0)
-		{
-			offSet=floor(log(maxslot_+1)/log(4));
-			// printf("maxslot_=%d, offSet=%d\n"
-			// 	,maxslot_,offSet);
-		}*/
-		
-		/*key=((iph->src().addr_ << offSet)
-			^iph->dst().addr_
-			^(iph->src().port_<< offSet)
-			^iph->dst().port_)+randSalt_;*/
+		key = balance_ecmp(p);
 	}
 	int cl=0;
 	cl=key%(maxslot_+1);
 	/*printf("%lf-Node-%d: maxslot=%d, key=%d, cl=%d, sLeaf_Conga_=%d. randSalt_=%u\n"
 		,Scheduler::instance().clock(),nodeID_,maxslot_,key,cl,sLeaf_Conga_,randSalt_);*/
 	
+
+	// conga_get_instance();
 	#define All-Packet-Debug
 	#ifdef All-Packet-Debug
-	FILE* fpResult=fopen("All-Packet-Debug.tr","a+");
-	if(fpResult==NULL)
-    {
-        fprintf(stderr,"Can't open file %s!\n","debug.tr");
-    	return(TCL_ERROR);
-    } else {
-		fprintf(fpResult, "%p %lf-Node-%d-(%d->%d):flowid=%d size=%d key=%d randSalt=%u ecmpHashKey=%u maxslot_=%d cl=%d flowlet=%u\n"
-		,this,Scheduler::instance().clock(),nodeID_,iph->src_,iph->dst_,cmnh->flowID,cmnh->size_,key,randSalt_,cmnh->ecmpHashKey,maxslot_,cl,loadBalanceFlowlet_);
-		fclose(fpResult);
-	}
+	// FILE* fpResult=fopen("All-Packet-Debug.tr","a+");
+	// if(fpResult==NULL)
+ //    {
+ //        fprintf(stderr,"Can't open file %s!\n","debug.tr");
+ //    	return(TCL_ERROR);
+ //    } else {
+	// 	fprintf(fpResult, "%d %lf-Node-%d-(%d->%d):flowid=%d size=%d key=%d randSalt=%u ecmpHashKey=%u maxslot_=%d cl=%d flowlet=%u\n"
+	// 	,conga_enabled(),Scheduler::instance().clock(),nodeID_,iph->src_,iph->dst_,cmnh->flowID,cmnh->size_,key,randSalt_,cmnh->ecmpHashKey,maxslot_,cl,loadBalanceFlowlet_);
+	// 	fclose(fpResult);
+	// }
 	#endif
 
 	if(slot_[cl] == 0)
@@ -281,22 +149,30 @@ int MultiPathForwarder::classify(Packet* p) {
 	{
 		printf("Node:%d  fLayer_ successfully binded!\n",nodeID_);
 	}
-///CG add ends!
+	///CG add ends!
 
 
-	
-	
-/*///original		
-	int fail = ns_;
-	do {
-		cl = ns_++;
-		ns_ %= (maxslot_ + 1);
-	} while (slot_[cl] == 0 && ns_ != fail);
-*///
+		
+		
+	/*///original		
+		int fail = ns_;
+		do {
+			cl = ns_++;
+			ns_ %= (maxslot_ + 1);
+		} while (slot_[cl] == 0 && ns_ != fail);
+	*///
 	return cl;
 }
 
 
+
+int MultiPathForwarder::mpath_route(Packet* p)
+{
+	if(conga_enabled() == 1)
+		return conga_()->route(p, this);
+	else
+		return rand();
+}
 
 //CG add
 int MultiPathForwarder::command(int argc, const char*const* argv)
@@ -321,4 +197,152 @@ int MultiPathForwarder::command(int argc, const char*const* argv)
         }
 	}
 	return (Classifier::command(argc, argv));
+}
+
+
+
+
+
+
+int MultiPathForwarder::balance_flowlet(Packet* p)
+{
+	hdr_ip* iph = hdr_ip::access(p);
+	hdr_cmn* cmnh = hdr_cmn::access(p);
+	
+	int key;
+	
+	unsigned char F_Tuple[24];
+	memset(F_Tuple,0,24*sizeof(unsigned char));
+	memcpy(F_Tuple,&(iph->src().addr_),sizeof(int32_t));
+	memcpy(F_Tuple+sizeof(int32_t),&(iph->dst().addr_),sizeof(int32_t));
+	memcpy(F_Tuple+2*sizeof(int32_t),&(iph->src().port_),sizeof(int32_t));
+	memcpy(F_Tuple+3*sizeof(int32_t),&(iph->dst().port_),sizeof(int32_t));
+	memcpy(F_Tuple+4*sizeof(int32_t),&(randSalt_),sizeof(int32_t));
+	memcpy(F_Tuple+5*sizeof(int32_t),&(cmnh->ecmpHashKey),sizeof(int32_t));
+
+	uint16_t regionStart=randSalt_%(0x10000);
+
+	// calculate the crc hash key to identify a flow
+	uint16_t crc=crc16.gen_crc16((uint8_t *)F_Tuple,24);
+
+
+	vector < FlowletRecord >::iterator it;
+	for (it = FlowletTable.begin(); it != FlowletTable.end(); it ++)
+	{
+		if(it->flowHashKey == crc)
+		{
+			
+			// if packet interval is little than the flowlet avg interval,
+			//	just use the old routel; otherwise choose a new route for it
+			double clk = Scheduler::instance().clock();
+			double timestamp = it->timeStamp;
+			double devTime = fabs(clk - timestamp);
+			if(devTime <= 1E-4)
+			{
+				it->timeStamp = clk;
+				key = it->flowChosenKey;
+			}
+			else 
+			{
+				key = mpath_route(p);
+				it->flowChosenKey = key;
+				it->timeStamp = clk;
+			}
+			break;
+		}
+	}
+	// if the flow has not get in this node, choose a route for it
+	if(it == FlowletTable.end())
+	{
+		key = mpath_route(p);
+		struct FlowletRecord flow = {
+			.flowHashKey = crc, 
+			.flowChosenKey = key, 
+			.timeStamp = Scheduler::instance().clock()
+		};
+		FlowletTable.push_back(flow);
+		FILE* fpResult=fopen("debug.tr","a+");
+	}
+	return key;
+}
+
+int MultiPathForwarder::balance_ecmp(Packet* p)
+{
+	hdr_ip* iph = hdr_ip::access(p);
+	hdr_cmn* cmnh = hdr_cmn::access(p);
+	int key;
+	unsigned char F_Tuple[24];
+	memset(F_Tuple,0,24*sizeof(unsigned char));
+	memcpy(F_Tuple,&(iph->src().addr_),sizeof(int32_t));
+	memcpy(F_Tuple+sizeof(int32_t),&(iph->dst().addr_),sizeof(int32_t));
+	memcpy(F_Tuple+2*sizeof(int32_t),&(iph->src().port_),sizeof(int32_t));
+	memcpy(F_Tuple+3*sizeof(int32_t),&(iph->dst().port_),sizeof(int32_t));
+	memcpy(F_Tuple+4*sizeof(int32_t),&(randSalt_),sizeof(int32_t));
+	memcpy(F_Tuple+5*sizeof(int32_t),&(cmnh->ecmpHashKey),sizeof(int32_t));
+
+	// unsigned char F_Tuple[8];
+	// memset(F_Tuple,0,8*sizeof(unsigned char));
+	// memcpy(F_Tuple,&(randSalt_),sizeof(randSalt_));
+	// memcpy(F_Tuple+sizeof(int32_t),&(cmnh->ecmpHashKey),sizeof(int32_t));
+
+	// unsigned char F_Tuple[8];
+	// memset(F_Tuple,0,8*sizeof(unsigned char));
+	// memcpy(F_Tuple,&(cmnh->ecmpHashKey),sizeof(int32_t));
+	// memcpy(F_Tuple+sizeof(int32_t),&(randSalt_),sizeof(int32_t));
+
+	uint16_t regionStart=randSalt_%(0x10000);
+
+	uint16_t crc=crc16.gen_crc16((uint8_t *)F_Tuple,24);
+
+	uint16_t regionOffSet=(crc-regionStart+(0x10000))%0x10000;
+
+	key=(int) regionOffSet/((0x10000)/(maxslot_+1));
+
+
+	////Hack for debug mode
+	if(cmnh->ecmpHashKey==-1)
+	{
+		key=0;
+	}
+	else if(cmnh->ecmpHashKey==-2)
+	{
+		key=1;
+	}
+
+	key=(int) cmnh->ecmpHashKey/((0x10000)/(maxslot_+1));
+	
+
+	// if(maxslot_>=1)
+	// {
+	// 	// printf("====srcIP|dstIP|srcPort|dstPort|randSalt|ecmpHashKey(DEC)====\n");
+	// 	// printf("%d|%d|%d|%d|%u|%u\n",iph->src().addr_,iph->dst().addr_,iph->src().port_,iph->dst().port_,randSalt_,cmnh->ecmpHashKey);
+
+	// 	// printf("====randSalt|ecmpHashKey(HEX)====\n");
+	// 	// for(int i=0;i<8;i++)
+	// 	// {
+	// 	// 	if(i!=0&&i%4==0)
+	// 	// 	{
+	// 	// 		printf("|");
+	// 	// 	}
+	// 	// 	printf("%02X",F_Tuple[i]);
+	// 	// }
+	// 	// printf("\n");
+
+	// }
+	
+
+	/*int offSet=0;
+	if(maxslot_>0)
+	{
+		offSet=floor(log(maxslot_+1)/log(4));
+		// printf("maxslot_=%d, offSet=%d\n"
+		// 	,maxslot_,offSet);
+	}*/
+	
+	/*key=((iph->src().addr_ << offSet)
+		^iph->dst().addr_
+		^(iph->src().port_<< offSet)
+		^iph->dst().port_)+randSalt_;*/
+
+	return key;
 }

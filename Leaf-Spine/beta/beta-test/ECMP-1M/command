@@ -1,8 +1,0 @@
-#!/bin/bash
-
-for i in {1..10}
-do 
-	rm  InputFlow-FCT-80-200.tr 
-	ns CLB-LabPart1-ECMP.tcl 10000 0.02 2 10G 40 1G 200 `date '+%s'` >tmp 2>error.tmp
-	python3 ../untitled0.py InputFlow-FCT-80-200.tr >>result
-done

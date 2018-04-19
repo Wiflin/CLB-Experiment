@@ -63,6 +63,14 @@ struct GaPacketInfo
   CodingINFO cInfo;
 };
 
+struct CongaRow
+{
+	int en_flag;
+	int srcLeaf;
+	int portChose;
+	int congDegree;
+};
+
 // Used by wireless routing code to attach routing agent
 #define RT_PORT		255	/* port that all route msgs are sent to */
 
@@ -721,6 +729,10 @@ struct hdr_cmn {
 	int FB_Metric;
 	int srcLeaf;
 	int dstLeaf;
+
+	//WF add Conga Header
+	struct CongaRow congaRouteRow;////WF add for conga row
+	struct CongaRow congaResponseRow;
 
 
 	unsigned ecmpHashKey;///For ECMP routing
