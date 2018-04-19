@@ -76,6 +76,7 @@ public:
 		// @todo need to free all table row
 	}
 
+	int conga_enabled();
 	int route(Packet* p, Classifier* c_);
 	void recv(Packet* p, Classifier* c_);
 	
@@ -90,7 +91,6 @@ protected:
 
 	map < int, int* > route_table_;
 	map < int, map < int, int > > response_table_;
-	map < int, int* >::iterator it;
 	
 };
 

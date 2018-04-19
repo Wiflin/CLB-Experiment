@@ -169,7 +169,7 @@ public:
 	//WF add 
 	Conga* conga_get_instance() { return conga_; }
 	int conga_enabled() {return conga_enabled_;}
-	int conga_enabled_;
+
 	//WF add end
 
 
@@ -193,6 +193,7 @@ protected:
 
 	// pointer to Conga congestion aware module
 	Conga* conga_;	//WF add 
+	int conga_enabled_;
 	// unsigned loadBalanceConga_; //WF add
 
 	unsigned randSalt_;////CG add for ECMP salt

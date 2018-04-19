@@ -373,7 +373,7 @@ void Classifier::set_table_size(int, int)
 int Classifier::conga_enabled()
 {
 	if (n_)
-		return n_->conga_enabled_; 
+		return n_->conga_enabled(); 
 	return -1;
 }
 

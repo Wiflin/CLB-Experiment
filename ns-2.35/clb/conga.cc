@@ -54,75 +54,75 @@
 #include "node.h"
 #include "conga.h"
 
+
+int Conga::conga_enabled()
+{
+	if (n_)
+		return n_->conga_enabled();
+	return -1;
+}
+
 // @function route 
 // 1.choose a output port for a packet
 // 2.enable and set congaRow flag
 // 3.set response route information
 int Conga::route(Packet* p, Classifier* c_) 
 {
-	// hdr_ip* iph = hdr_ip::access(p);
-	// hdr_cmn* cmnh = hdr_cmn::access(p);
+	hdr_ip* iph = hdr_ip::access(p);
+	hdr_cmn* cmnh = hdr_cmn::access(p);
 	
-	// int dst = iph->dst_.addr_;
-	// int dst_leaf = dst_to_leaf(dst);
+	int dst = serv2leaf(iph->dst_.addr_);
+	int r_ = -1, fee_ = 0x7fffffff;
 
-	// it = route_table_.find(dst_leaf);
-	// if(it == route_table_.end())
-	// {
-	// 	int* row = new int[slots_]();
+	map < int,int >::iterator it = route_table_.find(dst);
+	if (it != route_table_.end())
+	{
+		for (int i = 0; i < slots_; ++i)
+		{
+			if (route_table_[dst][i] < fee_) 
+			{
+				r_ = i;
+				fee_ = route_table_[dst][i];
+			}
+		}
+	}
+	
+	if (r_ == -1)
+		r_ = rand() % slots_;
 		
-	// 	if(!row)
-	// 		fprintf(stderr,"Can't get bind Node.\n");
-	// 	else
-	// 		route_table_[dst_leaf] = row;
-	// }
 
-	// int r_ = -1, fee_ = 0x7fffffff;
-	// for (int i = 0; i < slots_; ++i)
-	// {
-	// 	if (route_table_[dst_leaf][i] < fee_) 
-	// 	{
-	// 		r_ = i;
-	// 		fee_ = route_table_[dst_leaf][i];
-	// 	}
-	// }
 
-	// if (r_ == -1)
-	// {
-	// 	r_ = rand() % slots_;
-	// }
+	// 2.enable and set congaRow flag
+	cmnh->congaRouteRow = {
+		.en_flag = 1,
+		.srcLeaf = iph->src_.addr_,
+		.portChose = r_,
+		.congDegree = 0
+	};
 
-	// // 2.enable and set congaRow flag
-	// p->congaRouteRow = {
-	// 	.en_flag = 1,
-	// 	.srcLeaf = iph->src_.addr_,
-	// 	.portChose = r_,
-	// 	.congDegree = 0
-	// };
-
-	// // 3.set response route information
-	// int rnd = rand() % slots_;
+	// 3.set response route information
+	int rnd = rand();
 	
-	// it = response_table_.find(dst_leaf);
-	// if (it == response_table_.end())
-	// {
-	// 	p->congaResponseRow = {
-	// 		.en_flag = 0,
-	// 		.srcLeaf = iph->src_.addr_,
-	// 		.portChose = rnd,
-	// 		.congDegree = 0
-	// 	}
-	// } else {
-	// 	p->congaResponseRow = {
-	// 		.en_flag = 0,
-	// 		.srcLeaf = iph->src_.addr_,
-	// 		.portChose = rnd,
-	// 		.congDegree = response_table_[dst_leaf][rnd]
-	// }
+	map < int, map < int,int > >::iterator it = response_table_.find(dst);
+	if (it == response_table_.end()) {
+		cmnh->congaResponseRow.en_flag = 0;
+	} else {
+		rnd = rnd % response_table_[dst].size()
+		map< int,int >::iterator it = response_table_[dst].begin();
+	    while(rnd--) {
+	        iter++;
+	    }
+
+		cmnh->congaResponseRow = {
+			.en_flag = 1,
+			.srcLeaf = iph->src_.addr_,
+			.portChose = it->first ,
+			.congDegree = it->second
+	}
 
 	
 
-	// return r_;
+	return r_;
 
 }
 
@@ -147,7 +147,7 @@ void Conga::recv(Packet* p, Classifier* c_)
     	// return(TCL_ERROR);
     } else {
 		fprintf(fpResult, "%d %lf-Node-%d-(%d->%d):flowid=%d size=%d maxslot_=%d\n"
-		,n_->conga_enabled(),Scheduler::instance().clock(),nodeID_,iph->src_,iph->dst_,cmnh->flowID,cmnh->size_,c_->maxslot());
+		,conga_enabled(),Scheduler::instance().clock(),nodeID_,iph->src_,iph->dst_,cmnh->flowID,cmnh->size_,c_->maxslot());
 		fclose(fpResult);
 	}
 
@@ -158,11 +158,12 @@ void Conga::recv(Packet* p, Classifier* c_)
 			port = route_row->portChose,
 			degree = route_row->congDegree;
 
-		it = response_table_.find(src);
+		map< int, map < int, int > >::iterator it = response_table_.find(src);
 		if (it == response_table_.end())
 		{
 			// response_table_[src] = new map < int, int >();
-			response_table_.insert(map< int, map<int,int> > :: value_type(src, map<int,int>()));
+			map<int,int> tmp;
+			response_table_.insert( map< int, map<int,int> > :: value_type(src, tmp) );
 		}
 		response_table_[src][port] = degree;
 
@@ -179,7 +180,7 @@ void Conga::recv(Packet* p, Classifier* c_)
 			fprintf(stderr,"%lf-Node-%d-(%d->%d):Receive A Conga Packet With Larger Port No.%d! [flowid=%d size=%d] \n\n"
 			,Scheduler::instance().clock(),nodeID_,iph->src_,iph->dst_,port,cmnh->flowID,cmnh->size_);
 
-		it = route_table_.find(dst);
+		map < int, int* >::iterator it = route_table_.find(dst);
 		if (it == route_table_.end())
 		{
 			route_table_[dst] = new int[slots_]();
