@@ -1,88 +1,34 @@
-if { $argc != 9 } {
-       puts "Arguments: rwndSize linkDelay switchPortNumber linkRate switchDownPortNumber linkAccessRate flowNumber randSeed"
-       exit
-}
- 
-
 set ns [new Simulator]
 
-set method					[lindex $argv 0]
-
-set rwndSize 				[lindex $argv 1]
-#rwnd size in packets
-
-set linkDelay 				[lindex $argv 2]
-#linkDelay in ms
-
-set switchAccessNumber 		[lindex $argv 3]
-set linkRate 				[lindex $argv 4]
-
-set switchDownPortNumber 	[lindex $argv 5]
-set linkAccessRate 			[lindex $argv 6]
-
-set flowNumber 				[lindex $argv 7]
-#how many flows in total generated
-
-set randSeed 				[lindex $argv 8]
 
 
-set linkRateInt 		[expr int([string trim $linkRate "GMB"])]
-set linkAccessRateInt 	[expr int([string trim $linkAccessRate "GMB"])]
-set ratio 				[expr int($linkRateInt/$linkAccessRateInt)]
 
-puts "Network Link Status: linkRate = $linkRate, linkAccessRate = $linkAccessRate, ratio = $ratio"
+set serverNumber 		30
+set accessSwitchNumber 	2
+set topSwitchNumber 	2
 
+set leafUpPortNumber 2
+set leafDownPortNumber 15
 
-if {[expr $switchDownPortNumber%$ratio]!= 0} {
-	puts "switchDownPortNumber must be integer times of link ratio"
-	exit
-}
+set flowNumber 15
 
+set fTraffic [open InputFlow-$serverNumber-$flowNumber.tr r]
 
-set serverNumber 		[expr $switchAccessNumber*$switchDownPortNumber]
-set accessSwitchNumber 	[expr $switchAccessNumber]
-set topSwitchNumber 	[expr int($switchDownPortNumber/$ratio)]
-
-set leafUpPortNumber $topSwitchNumber
-set leafDownPortNumber $switchDownPortNumber
-
-puts "Network Structure Initialized: LeafDownPortNumber($leafDownPortNumber) LeafUpPortNumber($leafUpPortNumber)"
-puts "Network Structure Initialized: ServerNumber($serverNumber) AccessSwitchNumber($accessSwitchNumber) TopSwitchNumber($topSwitchNumber)......"
-
-
-set fTraffic [open InputFlow-$serverNumber-[expr $flowNumber].tr r]
-
-# METHOD: PerPacket
-if {$method == "Packet"} { 
-	set intialCwnd 100
-	Agent/TCP/FullTcp/Sack set sack_rtx_cthresh_ 1000;
-	Agent/TCP/FullTcp set tcprexmtthresh_ 1000
-	Agent/TCP set IF_PRINT_SEQTIMELINE 1
-	Node set loadBalancePerPacket_ 1
-
-# METHOD: PerFlowlet
-} elseif {$method == "Flowlet"} {
-	set intialCwnd 100
-	Node set loadBalanceFlowlet_ 1
-
-# METHOD: ECMP
-} elseif {$method == "ECMP"} {
-	set intialCwnd 100
-
-# ERROR METHOD
-} else {
-	puts "Exit because of Error method: $method !"
-	exit
-}
-
-
-set fInputTrafficBindFlowID [open InputFlow-BindFlowID-$serverNumber-[expr $flowNumber].tr w]
+set fInputTrafficBindFlowID [open InputFlow-BindFlowID-$serverNumber-$flowNumber.tr w]
 
 set fFCT "InputFlow-FCT-$serverNumber-$flowNumber.tr"
 
-# set failureNumber 3
+set intialCwnd 100
+Agent/TCP/FullTcp/Sack set sack_rtx_cthresh_ 1000;
+Agent/TCP/FullTcp set tcprexmtthresh_ 1000
+Agent/TCP set IF_PRINT_SEQTIMELINE 1
+Node set loadBalancePerPacket_ 1
+
+
 Node set multiPath_ 1
 $ns set staticRoute_ 1
+
+
 
 # server nodes
 for {set i 0} {$i<$serverNumber} {incr i} {
@@ -103,6 +49,9 @@ for {set i 0} {$i<$topSwitchNumber} {incr i} {
 	$sSpine($i) enable-salt
 }
 
+
+
+set rwndSize 4000
 set queueSpineSwitch 10000
 set queueLeafSwitch 10000
 
@@ -113,17 +62,15 @@ set ecnThresholdPortion 0.3
 set sendBufferSize	4000
 set ecnThresholdPortionLeaf 0.3
 
-
-
 #leaf <-> node
 puts "initializing links between servers and leaf(i) switches......"
 for {set i 0} {$i<$accessSwitchNumber} {incr i} {
 	for {set j 0} {$j<$leafDownPortNumber} {incr j} {
 		set k [expr $i*$leafDownPortNumber+$j]
-		$ns simplex-link $n($k) $sLeaf($i) $linkAccessRate [expr $linkDelay*1E-3]s $queueManage
+		$ns simplex-link $n($k) $sLeaf($i) 1G 0.00002s $queueManage
 		$ns queue-limit $n($k) $sLeaf($i) $sendBufferSize
 		# $ns ecn-threshold $n($k) $sLeaf($i) [expr int($queueLeafSwitch*$ecnThresholdPortionLeaf)]
-		$ns simplex-link $sLeaf($i) $n($k) $linkAccessRate [expr $linkDelay*1E-3]s $queueManage
+		$ns simplex-link $sLeaf($i) $n($k) 1G 0.00002s $queueManage
 		$ns queue-limit $sLeaf($i) $n($k) $queueLeafSwitch
 		# $ns ecn-threshold $sLeaf($i) $n($k) [expr int($queueLeafSwitch*$ecnThresholdPortionLeaf)]
 		puts "node([$n($k) set address_]) <-> leaf($i)([$sLeaf($i) set address_]) "
@@ -145,44 +92,40 @@ for {set i 0} {$i<$accessSwitchNumber} {incr i} {
 
 
 
-#spine <-> leaf
-puts "initializing links between leaf(i) and spine switches......"
-for {set i 0} {$i<$accessSwitchNumber} {incr i} {
-	for {set j 0} {$j<$leafUpPortNumber} {incr j} {
-		set k [expr ($i*$leafUpPortNumber+$j)%$topSwitchNumber]
-			$ns simplex-link $sLeaf($i) $sSpine($k) $linkRate [expr $linkDelay*1E-3]s $queueManage	
-			$ns queue-limit $sLeaf($i) $sSpine($k) $queueLeafSwitch
-			# $ns ecn-threshold $sLeaf($i) $sSpine($k) [expr int($queueSpineSwitch*$ecnThresholdPortion)]
-			$ns simplex-link $sSpine($k) $sLeaf($i) $linkRate [expr $linkDelay*1E-3]s $queueManage
-			$ns queue-limit $sSpine($k) $sLeaf($i) $queueSpineSwitch
-			# $ns ecn-threshold $sSpine($k) $sLeaf($i) [expr int($queueSpineSwitch*$ecnThresholdPortion)]
+# 0 -> 0
+$ns simplex-link $sLeaf(0) $sSpine(0) 10G 0.00002s $queueManage	
+$ns queue-limit $sLeaf(0) $sSpine(0) $queueLeafSwitch
 
-			puts "leaf($i)([$sLeaf($i) set address_]) <-> spine($k)([$sSpine($k) set address_])"
-
-			set queue1 [[$ns link $sSpine($k) $sLeaf($i)] queue]
-			# $queue1 monitor-QueueLen
-			# $queue1 monitor-Drop
-			# $queue1 monitor-FlowPath
-			# $queue1 monitor-PathTrace
-
-			set queue2 [[$ns link  $sLeaf($i) $sSpine($k)] queue]
-			# $queue2 tag-timestamp
-			# $queue2 monitor-QueueLen
-			# $queue2 monitor-FlowPath
-			# $queue2 monitor-Drop
-			# $queue2 monitor-PathTrace
-			
-			# what is this means?
-			# if {$k==0 && $failureNumber>0 && $failureNumber<3} {
-			# 	$ns link-lossmodel $em $sLeaf($i) $sSpine($k)
-			# 	# $queue2 monitor-FlowPath
-			# }
-	}
-}
+$ns simplex-link $sSpine(0) $sLeaf(0) 10G 0.00002s $queueManage
+$ns queue-limit $sSpine(0) $sLeaf(0) $queueSpineSwitch
 
 
 
-######################## set static routes ############################
+# 0 -> 1
+$ns simplex-link $sLeaf(0) $sSpine(1) 10G 0.00002s $queueManage	
+$ns queue-limit $sLeaf(0) $sSpine(1) $queueLeafSwitch
+
+$ns simplex-link $sSpine(1) $sLeaf(0) 10G 0.00002s $queueManage
+$ns queue-limit $sSpine(1) $sLeaf(0) $queueSpineSwitch
+
+
+
+# 1 -> 0
+$ns simplex-link $sLeaf(1) $sSpine(0) 10G 0.00002s $queueManage	
+$ns queue-limit $sLeaf(1) $sSpine(0) $queueLeafSwitch
+
+$ns simplex-link $sSpine(0) $sLeaf(1) 10G 0.00002s $queueManage
+$ns queue-limit $sSpine(0) $sLeaf(1) $queueSpineSwitch
+
+
+
+# 1 -> 1
+$ns simplex-link $sLeaf(1) $sSpine(1) 5G 0.00002s $queueManage	
+$ns queue-limit $sLeaf(1) $sSpine(1) $queueLeafSwitch
+
+$ns simplex-link $sSpine(1) $sLeaf(1) 5G 0.00002s $queueManage
+$ns queue-limit $sSpine(1) $sLeaf(1) $queueSpineSwitch
+
 
 # initialize route-table
 for {set i 0} {$i<$serverNumber} {incr i} {
@@ -252,17 +195,16 @@ puts [format "Adding routes for leaf and spine completed! Run for %dh:%dm:%ds" $
 
 ################################################################
 
-
-Agent/TCP set window_ $rwndSize
-Agent/TCP set maxcwnd_ $rwndSize
+Agent/TCP set window_ 4000
+Agent/TCP set maxcwnd_ 4000
 Agent/TCP set minrto_ 5e-3
 Agent/TCP set tcpTick_ 1e-5
 Agent/TCP set rtxcur_init_ 5e-3
-Agent/TCP set windowInit_ $intialCwnd
+Agent/TCP set windowInit_ 16
 
 Agent/TCP set maxRto_	3
 
-Agent/TCP set max_ssthresh_ 200
+Agent/TCP set max_ssthresh_ 20000
 
 # Agent/TCPSink set ecn_syn_ true
 # Agent/TCP set ecn_ 1
@@ -272,7 +214,7 @@ set STARTTIMEOFFSET 2000
 set inputFlowStartTime [clock seconds]
 
 set random_generator [ new RNG ]
-$random_generator seed $randSeed
+$random_generator seed 1500156051
 set rnd [new RandomVariable/Uniform]
 $rnd use-rng $random_generator
 $rnd set min_ 0
@@ -285,9 +227,6 @@ set smallFlowNum 0
 set totalConnNum 0
 set longConnNum 0
 set normalConnNum 0
-
-
-# # --------------------------------------------------------------
 
 # bind flow with exact link 
 for {set k 0} {$k<$flowNumber} {incr k} {
@@ -372,6 +311,9 @@ for {set k 0} {$k<$flowNumber} {incr k} {
 	# }
 }
 
+
+$tcpsink(0) monitor-Sequence
+
 set inputFlowEndTime [clock seconds]
 set runTime [expr $inputFlowEndTime-$inputFlowStartTime]
 set hour [expr int($runTime/3600)]
@@ -387,9 +329,10 @@ proc finish {} {
 	for {set i 0} {$i<$normalConnNum} {incr i} {
 		$ftpsink($i) print-result-file $fFCT
 	}
+
+	exit
 }
 
-set timeLength [expr $latestFlowStartTime+5000]
+set timeLength [expr $latestFlowStartTime+10]
 $ns at $timeLength "finish"
 $ns run
-

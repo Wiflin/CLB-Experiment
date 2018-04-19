@@ -227,14 +227,15 @@ Node::command(int argc, const char*const* argv)
 		} 
 	} else if (argc == 4) {
 		if (strcmp(argv[1], "enable-conga") == 0) {
-			if(conga_enabled_ && conga_)
-				return TCL_OK;
-			int topSwitchNumber = atoi(argv[3]);
+			// if(conga_enabled_ == 1 && conga_)
+			// 	return TCL_OK;
+			int topSwitchNumber = atoi(argv[2]);
 			int leafDownPortNumber = atoi(argv[3]);
 			conga_ = new Conga(this, topSwitchNumber, leafDownPortNumber);
 			conga_enabled_ = 1;
 
-			printf("%lf-Node-%d: conga_=%p\n",Scheduler::instance().clock(),address_,conga_);
+			fprintf(stderr,"%lf-Node-%d: conga_=%p, conga_enabled_=%d initializing conga(%d,%d) with argc(%s,%s)instance\n"
+				,Scheduler::instance().clock(),address_,conga_,conga_enabled(),topSwitchNumber, leafDownPortNumber,argv[2],argv[3]);
 			return TCL_OK;
 		}	
 	}

@@ -109,7 +109,12 @@ int MultiPathForwarder::classify(Packet* p) {
 	}
 	else if(loadBalancePerPacket_ == 1)
 	{
-		key = rand();
+		// key = rand();
+		key = mpath_route(p);
+		if(conga_enabled() == 1)
+		{
+			conga_()->packetPrint(p, this, "All-Packet-Debug.tr","mpath-classifier");
+		}
 	}
 	else if(loadBalanceFlowlet_ == 1)
 	{
@@ -126,19 +131,24 @@ int MultiPathForwarder::classify(Packet* p) {
 	
 
 	// conga_get_instance();
-	#define All-Packet-Debug
-	#ifdef All-Packet-Debug
+	// #define All-Packet-Debug
+	// #ifdef All-Packet-Debug
 	// FILE* fpResult=fopen("All-Packet-Debug.tr","a+");
 	// if(fpResult==NULL)
  //    {
  //        fprintf(stderr,"Can't open file %s!\n","debug.tr");
- //    	return(TCL_ERROR);
+ //    	// return(TCL_ERROR);
  //    } else {
 	// 	fprintf(fpResult, "%d %lf-Node-%d-(%d->%d):flowid=%d size=%d key=%d randSalt=%u ecmpHashKey=%u maxslot_=%d cl=%d flowlet=%u\n"
 	// 	,conga_enabled(),Scheduler::instance().clock(),nodeID_,iph->src_,iph->dst_,cmnh->flowID,cmnh->size_,key,randSalt_,cmnh->ecmpHashKey,maxslot_,cl,loadBalanceFlowlet_);
 	// 	fclose(fpResult);
 	// }
-	#endif
+	// if(conga_enabled() == 1)
+	// {
+	// 	conga_()->packetPrint(p, this, "All-Packet-Debug.tr");
+	// }
+
+	// #endif
 
 	if(slot_[cl] == 0)
 	{
@@ -168,6 +178,7 @@ int MultiPathForwarder::classify(Packet* p) {
 
 int MultiPathForwarder::mpath_route(Packet* p)
 {
+	// fprintf(stderr,"[mpath-classifier] %lf-Node-%d conga=%d\n",Scheduler::instance().clock(),n_->nodeid(),conga_enabled());
 	if(conga_enabled() == 1)
 		return conga_()->route(p, this);
 	else
@@ -261,7 +272,7 @@ int MultiPathForwarder::balance_flowlet(Packet* p)
 			.timeStamp = Scheduler::instance().clock()
 		};
 		FlowletTable.push_back(flow);
-		FILE* fpResult=fopen("debug.tr","a+");
+		// FILE* fpResult=fopen("debug.tr","a+");
 	}
 	return key;
 }

@@ -50,6 +50,7 @@
 #include <time.h>  
 #include <vector>
 #include <map>
+#include <vector>
 #include "classifier.h"
 #include "node.h"
 #include "conga.h"
@@ -68,28 +69,39 @@ int Conga::conga_enabled()
 // 3.set response route information
 int Conga::route(Packet* p, Classifier* c_) 
 {
+	fprintf(stderr,"[conga] %lf-Node-%d get in route()\n",Scheduler::instance().clock(),n_->nodeid() );
 	hdr_ip* iph = hdr_ip::access(p);
 	hdr_cmn* cmnh = hdr_cmn::access(p);
 	
 	int dst = serv2leaf(iph->dst_.addr_);
 	int r_ = -1, fee_ = 0x7fffffff;
 
-	map < int,int >::iterator it = route_table_.find(dst);
+	vector < int > tmp;
+	map < int,int* >::iterator it = route_table_.find(dst);
 	if (it != route_table_.end())
 	{
 		for (int i = 0; i < slots_; ++i)
 		{
-			if (route_table_[dst][i] < fee_) 
-			{
+			if (route_table_[dst][i] < fee_) {
+				
+				tmp.clear();
+				tmp.push_back(i);
 				r_ = i;
 				fee_ = route_table_[dst][i];
+			} else if (route_table_[dst][i] == fee_) {
+				tmp.push_back(i);
 			}
 		}
+
+		r_ = tmp[rand() % tmp.size()];
+
+
 	}
-	
+		fprintf(stderr,"[conga] %lf-Node-%d tmp.size=%d route=%d slots=%d  getting out route() \n"
+			,Scheduler::instance().clock(),n_->nodeid(),tmp.size(),r_,slots_);
 	if (r_ == -1)
 		r_ = rand() % slots_;
-		
+		fprintf(stderr,"[conga] %lf-Node-%d route=%d slots=%d really out route() \n",Scheduler::instance().clock(),n_->nodeid(),r_,slots_ );
 
 
 	// 2.enable and set congaRow flag
@@ -100,28 +112,32 @@ int Conga::route(Packet* p, Classifier* c_)
 		.congDegree = 0
 	};
 
+
+
 	// 3.set response route information
 	int rnd = rand();
 	
-	map < int, map < int,int > >::iterator it = response_table_.find(dst);
-	if (it == response_table_.end()) {
+	map < int, map < int,int > >::iterator it_ = response_table_.find(dst);
+	if (it_ == response_table_.end()) {
 		cmnh->congaResponseRow.en_flag = 0;
 	} else {
-		rnd = rnd % response_table_[dst].size()
-		map< int,int >::iterator it = response_table_[dst].begin();
+		rnd = rnd % response_table_[dst].size();
+		map< int,int >::iterator iter = response_table_[dst].begin();
 	    while(rnd--) {
 	        iter++;
 	    }
 
+	
 		cmnh->congaResponseRow = {
 			.en_flag = 1,
 			.srcLeaf = iph->src_.addr_,
-			.portChose = it->first ,
-			.congDegree = it->second
+			.portChose = iter->first,
+			.congDegree = iter->second
+		};
 	}
 
-	
 
+ 
 	return r_;
 
 }
@@ -135,21 +151,22 @@ int Conga::route(Packet* p, Classifier* c_)
 // 3.remove the flag from the packet header
 void Conga::recv(Packet* p, Classifier* c_)
 {
+		fprintf(stderr,"[conga] %lf-Node-%d get in route()\n",Scheduler::instance().clock(),n_->nodeid() );
 	hdr_ip* iph = hdr_ip::access(p);
 	hdr_cmn* cmnh = hdr_cmn::access(p);
 	struct CongaRow* route_row = &cmnh->congaRouteRow;
 	struct CongaRow* response_row = &cmnh->congaResponseRow;
 
-	FILE* fpResult=fopen("All-Packet-Debug.tr","a+");
-	if(fpResult==NULL)
-    {
-        fprintf(stderr,"Can't open file %s!\n","debug.tr");
-    	// return(TCL_ERROR);
-    } else {
-		fprintf(fpResult, "%d %lf-Node-%d-(%d->%d):flowid=%d size=%d maxslot_=%d\n"
-		,conga_enabled(),Scheduler::instance().clock(),nodeID_,iph->src_,iph->dst_,cmnh->flowID,cmnh->size_,c_->maxslot());
-		fclose(fpResult);
-	}
+	// FILE* fpResult=fopen("All-Packet-Debug.tr","a+");
+	// if(fpResult==NULL)
+ //    {
+ //        fprintf(stderr,"Can't open file %s!\n","debug.tr");
+ //    	// return(TCL_ERROR);
+ //    } else {
+	// 	fprintf(fpResult, "%d %lf-Node-%d-(%d->%d):flowid=%d size=%d maxslot_=%d\n"
+	// 	,conga_enabled(),Scheduler::instance().clock(),n_->nodeid(),iph->src_,iph->dst_,cmnh->flowID,cmnh->size_,c_->maxslot());
+	// 	fclose(fpResult);
+	// }
 
 	// effectively
 	if (route_row->en_flag)
@@ -178,7 +195,7 @@ void Conga::recv(Packet* p, Classifier* c_)
 
 		if (port >= slots_)
 			fprintf(stderr,"%lf-Node-%d-(%d->%d):Receive A Conga Packet With Larger Port No.%d! [flowid=%d size=%d] \n\n"
-			,Scheduler::instance().clock(),nodeID_,iph->src_,iph->dst_,port,cmnh->flowID,cmnh->size_);
+			,Scheduler::instance().clock(),n_->nodeid(),iph->src_,iph->dst_,port,cmnh->flowID,cmnh->size_);
 
 		map < int, int* >::iterator it = route_table_.find(dst);
 		if (it == route_table_.end())
@@ -189,17 +206,39 @@ void Conga::recv(Packet* p, Classifier* c_)
 
 		response_row->en_flag = 0;
 	}
-
-
-
 }
 
 
 int Conga::serv2leaf(int server) {
-	// if (leafDownPortNumber_ > 0)
-	// 	return dst/leafDownPortNumber_;
+	if (leafDownPortNumber_ > 0)
+		return int(server/leafDownPortNumber_);
 
-	// //why do u hard code this!
-	// else
-	// 	return dst/40;
+	//why do u hard code this!
+	else
+		return int(server/40);
+}
+
+
+// just for debug
+void Conga::packetPrint(Packet* p,Classifier* c,char* file_str,char* debug_str="")
+{
+	hdr_ip* iph = hdr_ip::access(p);
+	hdr_cmn* cmnh = hdr_cmn::access(p);
+	struct CongaRow* route_row = &cmnh->congaRouteRow;
+	struct CongaRow* response_row = &cmnh->congaResponseRow;
+
+	FILE* fpResult=fopen(file_str,"a+");
+	if(fpResult==NULL)
+    {
+        fprintf(stderr,"Can't open file %s!\n",file_str);
+    	// return(TCL_ERROR);
+    } else {
+		fprintf(fpResult, "[conga] %lf-Node-%d-(%d->%d): route:%d %d %d %d reponse:%d %d %d %d [%s]\n"
+			,Scheduler::instance().clock(),n_->nodeid(),iph->src_,iph->dst_
+			,route_row->en_flag,route_row->srcLeaf,route_row->portChose,route_row->congDegree
+			,response_row->en_flag,response_row->srcLeaf,response_row->portChose,response_row->congDegree
+			,debug_str
+		);
+		fclose(fpResult);
+	}
 }

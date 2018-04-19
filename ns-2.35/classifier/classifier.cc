@@ -165,7 +165,27 @@ void Classifier::recv(Packet* p, Handler*h)
 	// record packet if conga flag is set in packet header
 	if (conga_enabled() == 1) 
 	{
+		if (hdr_cmn::access(p)->congaResponseRow.en_flag == 1)
+			conga_()->packetPrint(p, this, "All-Packet-Debug.tr", "classifier-recv with route en_flag");
+		else
+			conga_()->packetPrint(p, this, "All-Packet-Debug.tr", "classifier-recv");
+
 		conga_()->recv(p, this);
+
+		FILE* fpResult=fopen("All-Packet-Debug.tr","a+");
+
+		hdr_ip* iph = hdr_ip::access(p);
+		hdr_cmn* cmnh = hdr_cmn::access(p);
+		if(fpResult==NULL)
+	    {
+	        fprintf(stderr,"Can't open file %s!\n","debug.tr");
+	    } else {
+			fprintf(fpResult, "%d %lf-Node-%d-(%d->%d):flowid=%d size=%d ecmpHashKey=%u maxslot_=%d flowlet=%u\n"
+			,conga_enabled(),Scheduler::instance().clock(),nodeID_,iph->src_,iph->dst_,cmnh->flowID,cmnh->size_,cmnh->ecmpHashKey,maxslot_,loadBalanceFlowlet_);
+			fclose(fpResult);
+		}
+
+		
 	}
 
 	/////CG add

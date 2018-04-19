@@ -794,6 +794,8 @@ inline Packet* Packet::alloc()
 	(HDR_CMN(p))->ifCONGA_=0;////CG add
 	memset(&(HDR_CMN(p))->pInfo,0,sizeof(parityInfo));//CG add
 	memset(&(HDR_CMN(p))->gaInfo,0,sizeof(GaPacketInfo));//CG add
+	memset(&(HDR_CMN(p))->congaRouteRow,0,sizeof(CongaRow));
+	memset(&(HDR_CMN(p))->congaResponseRow,0,sizeof(CongaRow));
 	return (p);
 }
 

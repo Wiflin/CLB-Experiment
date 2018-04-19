@@ -10,11 +10,11 @@ DREAgent::DREAgent(LinkDelay *link_)
 	ParrentLink_=link_;
 	decayTimer_.sched(T_DRE);
 	bandWidth=ParrentLink_->bandwidth();
-	// printf("%lf-Link(%d-%d, bw=%2.1e): Start timer %2.1e\n"
-	// 	,Scheduler::instance().clock()
-	// 	,ParrentLink_->fromNodeID(),ParrentLink_->toNodeID()
-	// 	,ParrentLink_->bandwidth()
-	// 	,T_DRE);
+	fprintf(stderr,"%lf-Link(%d-%d, bw=%2.1e): Start timer %2.1e\n"
+		,Scheduler::instance().clock()
+		,ParrentLink_->fromNodeID(),ParrentLink_->toNodeID()
+		,ParrentLink_->bandwidth()
+		,T_DRE);
 }
 
 DREAgent::DREAgent(double band_)

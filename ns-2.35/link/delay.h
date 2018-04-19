@@ -82,6 +82,7 @@ class LinkDelay : public Connector {
 
 	DREAgent* dre_; ////CG add
 	int ifCONGA_;////CG add
+
 };
 
 #endif

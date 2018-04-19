@@ -79,11 +79,12 @@ public:
 	int conga_enabled();
 	int route(Packet* p, Classifier* c_);
 	void recv(Packet* p, Classifier* c_);
+	void packetPrint(Packet* p,Classifier* c,char* file_str,char* debug_str);
 	
 protected:
 	
 		
-	int dst_to_leaf(int dst); 
+	int serv2leaf(int dst); 
 	
 	Node* n_;
 	int slots_;

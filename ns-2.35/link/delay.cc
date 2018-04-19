@@ -105,6 +105,24 @@ void LinkDelay::recv(Packet* p, Handler* h)
 	}
 	//CG add end!
 
+	//WF add begin!
+	if(cmnh->congaRouteRow.en_flag == 1)
+	{
+		if(ifCONGA_==0)
+		{
+			dre_=new DREAgent(this);
+			ifCONGA_=1;
+		}
+		
+		dre_->recv(p);
+		int cost = dre_->dreCost();
+		if(cost > cmnh->congaRouteRow.congDegree)
+		{
+			cmnh->congaRouteRow.congDegree = cost;
+		}
+	}
+	//WF add end!
+
 	double txt = txtime(p);
 	Scheduler& s = Scheduler::instance();
 	if (dynamic_) {
