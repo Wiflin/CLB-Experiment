@@ -224,7 +224,31 @@ Node::command(int argc, const char*const* argv)
 			}
 			addNeighbor(node);
 			return TCL_OK;
-		} 
+		} else if (strcmp(argv[1], "conga-route-debug") == 0) {
+			// if(conga_enabled_ == 1 && conga_)
+			// 	return TCL_OK;
+			int flag = atoi(argv[2]);
+			if(conga_enabled_ == 1 && conga_)
+			{
+				conga_->route_debug_set(flag);
+				return TCL_OK;
+			}
+
+			tcl.resultf("Invalid conga instance!");
+                                 return (TCL_ERROR);
+		} else if (strcmp(argv[1], "conga-packet-debug") == 0) {
+			// if(conga_enabled_ == 1 && conga_)
+			// 	return TCL_OK;
+			int flag = atoi(argv[2]);
+			if(conga_enabled_ == 1 && conga_)
+			{
+				conga_->all_pkts_debug_set(flag);
+				return TCL_OK;
+			}
+
+			tcl.resultf("Invalid conga instance!");
+                                 return (TCL_ERROR);
+		}
 	} else if (argc == 4) {
 		if (strcmp(argv[1], "enable-conga") == 0) {
 			// if(conga_enabled_ == 1 && conga_)
@@ -237,6 +261,12 @@ Node::command(int argc, const char*const* argv)
 			fprintf(stderr,"%lf-Node-%d: conga_=%p, conga_enabled_=%d initializing conga(%d,%d) with argc(%s,%s)instance\n"
 				,Scheduler::instance().clock(),address_,conga_,conga_enabled(),topSwitchNumber, leafDownPortNumber,argv[2],argv[3]);
 			return TCL_OK;
+		} else if (strcmp(argv[1], "conga-queue") == 0) {
+			if(conga_enabled_ == 1 && conga_)
+			{
+				conga_->route_queue(argv[2],argv[3]);
+				return TCL_OK;
+			}
 		}	
 	}
 

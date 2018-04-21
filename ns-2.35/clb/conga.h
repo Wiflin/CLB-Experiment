@@ -57,6 +57,7 @@
 
 
 class Node;
+class Queue;
 class Classifier;
 
 class Conga
@@ -70,8 +71,7 @@ public:
 	// 	, slots_(slots)
 	// 	, leafDownPortNumber(0)
 	// 	{}
-	Conga(Node* node, int slots, int leafDownPortNumber) : 
-		n_(node), slots_(slots), leafDownPortNumber_(leafDownPortNumber) {}
+	Conga(Node* node, int slots, int leafDownPortNumber);
 	~Conga() {
 		// @todo need to free all table row
 	}
@@ -79,17 +79,26 @@ public:
 	int conga_enabled();
 	int route(Packet* p, Classifier* c_);
 	void recv(Packet* p, Classifier* c_);
+
+	int route_queue(const char* r_, const char* q_);
+	int route_debug_set(int flag) {route_debug_ = flag;}
+	int all_pkts_debug_set(int flag) {all_pkts_debug_ = flag;}
 	void packetPrint(Packet* p,Classifier* c,char* file_str,char* debug_str);
 	
 protected:
 	
 		
 	int serv2leaf(int dst); 
-	
+	void route_debug(Packet* p, int r_);
+	void packet_debug(Packet* p, int r_);
+
 	Node* n_;
 	int slots_;
 	int leafDownPortNumber_;
+	int route_debug_;
+	int all_pkts_debug_;
 
+	map < int, Queue* > queueMap;
 	map < int, int* > route_table_;
 	map < int, map < int, int > > response_table_;
 	

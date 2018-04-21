@@ -54,6 +54,19 @@
 #include "classifier.h"
 #include "node.h"
 #include "conga.h"
+#include "queue.h"
+#include <cstdlib>
+#include <string>
+#include <sys/stat.h> 
+using namespace std;
+
+Conga::Conga(Node* node, int slots, int leafDownPortNumber) : 
+		route_debug_(0), all_pkts_debug_(0),
+		n_(node), slots_(slots), leafDownPortNumber_(leafDownPortNumber) 
+{
+	mkdir("CLB",0777);
+	system("exec rm -r -f CLB/*");
+}
 
 
 int Conga::conga_enabled()
@@ -136,8 +149,12 @@ int Conga::route(Packet* p, Classifier* c_)
 		};
 	}
 
+	if (route_debug_)
+		route_debug(p, r_);
+ 	
+ 	if (all_pkts_debug_)
+ 		packet_debug(p, r_);
 
- 
 	return r_;
 
 }
@@ -151,7 +168,7 @@ int Conga::route(Packet* p, Classifier* c_)
 // 3.remove the flag from the packet header
 void Conga::recv(Packet* p, Classifier* c_)
 {
-		fprintf(stderr,"[conga] %lf-Node-%d get in route()\n",Scheduler::instance().clock(),n_->nodeid() );
+	fprintf(stderr,"[conga] %lf-Node-%d get in route()\n",Scheduler::instance().clock(),n_->nodeid() );
 	hdr_ip* iph = hdr_ip::access(p);
 	hdr_cmn* cmnh = hdr_cmn::access(p);
 	struct CongaRow* route_row = &cmnh->congaRouteRow;
@@ -218,6 +235,70 @@ int Conga::serv2leaf(int server) {
 		return int(server/40);
 }
 
+void Conga::route_debug(Packet* p, int r_)
+{
+	int uid = p->uid();
+	FILE* fpResult=fopen("CLB/route_debug.tr","a+");
+	if(fpResult==NULL)
+    {
+        fprintf(stderr,"Can't open file %s!\n","CLB/route_debug.tr");
+    	// return(TCL_ERROR);
+    } else {
+    	int cost = -1;
+    	map < int, Queue* > :: iterator it = queueMap.find(r_);
+    	if (it != queueMap.end())
+    		cost = queueMap[r_]->length();
+
+
+
+		fprintf(fpResult, "%lf\t%d\t%d\t%d", Scheduler::instance().clock(), uid, r_, cost);		
+    	
+    	for (it = queueMap.begin(); it != queueMap.end(); it++)
+    	{
+    		fprintf(fpResult,"\t%d-%d", it->first, it->second->length());
+    	}
+		fprintf(fpResult,"\n");
+
+		fclose(fpResult);
+	}
+}
+
+
+void Conga::packet_debug(Packet* p, int r_)
+{
+	int uid = p->uid();
+	int dst = serv2leaf(hdr_ip::access(p)->dst_.addr_);
+
+	FILE* fpResult=fopen("CLB/packet_debug.tr","a+");
+	if(fpResult==NULL)
+    {
+        fprintf(fpResult,"Can't open file %s!\n","CLB/route_debug.tr");
+    } else {
+    	fprintf(fpResult,"%lf\t%d\t%d",Scheduler::instance().clock(),uid,r_);
+
+		map < int,int* >::iterator it = route_table_.find(dst);
+		if (it != route_table_.end())
+		{
+			for (int i = 0; i < slots_; ++i)
+			{
+				fprintf(fpResult,"\t%d-%d",i,route_table_[dst][i]);
+			}
+		}
+		fprintf(fpResult,"\n");
+		fclose(fpResult);
+	}
+
+}
+
+
+int Conga::route_queue(const char* r_, const char* q_)
+{
+	int qid = atoi(r_);
+	Queue* q = (Queue*)TclObject::lookup(q_);
+	queueMap[qid] = q;
+	fprintf(stderr, "[conga] queue map %d %s\n", qid, q_);
+	return 0;
+}
 
 // just for debug
 void Conga::packetPrint(Packet* p,Classifier* c,char* file_str,char* debug_str="")

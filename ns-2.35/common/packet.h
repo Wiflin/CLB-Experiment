@@ -516,6 +516,8 @@ private:
 	AppData* data_;		// variable size buffer for 'data'
 	static void init(Packet*);     // initialize pkt hdr 
 	bool fflag_;
+	int packet_uid;						//WF add
+	static int packet_uid_counter;	//WF add
 protected:
 	static Packet* free_;	// packet free list
 	int	ref_count_;	// free the pkt until count to 0
@@ -526,7 +528,9 @@ public:
 	Packet* next_;		// for queues and the free list
 	static int hdrlen_;
 
-	Packet() : bits_(0), data_(0), ref_count_(0), next_(0) { }
+	Packet() : bits_(0), data_(0), ref_count_(0), next_(0) { 
+		packet_uid = ++packet_uid_counter; //WF add 
+	}
 	inline unsigned char* bits() { return (bits_); }
 	inline Packet* copy() const;
 	inline Packet* refcopy() { ++ref_count_; return this; }
@@ -582,6 +586,10 @@ public:
         u_int8_t        incoming;
 
 	//monarch extns end;
+
+
+
+    inline int uid() { return packet_uid; } //WF add
 };
 
 /* 
@@ -739,6 +747,9 @@ struct hdr_cmn {
 	int flowID;
 //CG add ends
 
+
+
+
 };
 
 
@@ -772,6 +783,7 @@ inline Packet* Packet::alloc()
 		assert(p->data_ == 0);
 		p->uid_ = 0;
 		p->time_ = 0;
+		p->packet_uid = ++packet_uid_counter;
 	} else {
 		p = new Packet;
 		p->bits_ = new unsigned char[hdrlen_];

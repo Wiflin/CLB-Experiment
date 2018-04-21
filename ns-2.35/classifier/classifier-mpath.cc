@@ -111,10 +111,10 @@ int MultiPathForwarder::classify(Packet* p) {
 	{
 		// key = rand();
 		key = mpath_route(p);
-		if(conga_enabled() == 1)
-		{
-			conga_()->packetPrint(p, this, "All-Packet-Debug.tr","mpath-classifier");
-		}
+		// if(conga_enabled() == 1)
+		// {
+		// 	conga_()->packetPrint(p, this, "All-Packet-Debug.tr","mpath-classifier");
+		// }
 	}
 	else if(loadBalanceFlowlet_ == 1)
 	{

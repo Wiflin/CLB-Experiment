@@ -44,6 +44,7 @@ p_info packet_info;
 char** p_info::name_;
 unsigned int p_info::nPkt_ = 0;
 PacketClassifier *p_info::pc_ = 0;
+int Packet::packet_uid_counter = 0;
 
 int p_info::addPacket(char *name)
 {
