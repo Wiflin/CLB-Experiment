@@ -52,6 +52,7 @@
 #include <math.h>
 #include <time.h>  
 #include <vector>
+#include <sys/stat.h> 
 #include <map>
 
 
@@ -80,9 +81,25 @@ public:
 	int route(Packet* p, Classifier* c_);
 	void recv(Packet* p, Classifier* c_);
 
+
+	// for debug
 	int route_queue(const char* r_, const char* q_);
-	int route_debug_set(int flag) {route_debug_ = flag;}
-	int all_pkts_debug_set(int flag) {all_pkts_debug_ = flag;}
+	inline void route_debug_set(int flag) {
+		route_debug_ = flag;
+		if (route_debug_)
+		{
+			mkdir("CLB",0777);
+			system("exec rm -r -f CLB/*");
+		}
+	}
+	inline void all_pkts_debug_set(int flag) {
+		all_pkts_debug_ = flag;
+		if (all_pkts_debug_)
+		{
+			mkdir("CLB",0777);
+			system("exec rm -r -f CLB/*");
+		}
+	}
 	void packetPrint(Packet* p,Classifier* c,char* file_str,char* debug_str);
 	
 protected:

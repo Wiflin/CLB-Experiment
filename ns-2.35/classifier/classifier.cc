@@ -45,6 +45,8 @@ static const char rcsid[] =
 #include "clb_flow_classify.h"///CG add
 #include "clb_tunnel.h"///CG add
 #include "ip.h"	///CG add
+#include "clb/conga.h"	////WF add
+#include "clb/clb.h"	////WF add 
 
 static class ClassifierClass : public TclClass {
 public:
@@ -58,7 +60,7 @@ public:
 Classifier::Classifier() : 
 	slot_(0), nslot_(0), maxslot_(-1), shift_(0), mask_(0xffffffff), nsize_(0)
 	, CLB_Node_(0), BlockSize_N_(0), BlockSize_P_(0), ifTunnel(0), bandwidth_(0)
-	, n_(NULL), conga_instance(NULL)
+	, n_(NULL), conga_instance(NULL), clb_(NULL), clb_enabled(0)
 {
 	default_target_ = 0;
 
@@ -184,10 +186,16 @@ void Classifier::recv(Packet* p, Handler*h)
 		// 	fprintf(fpResult, "%d %lf-Node-%d-(%d->%d):flowid=%d size=%d ecmpHashKey=%u maxslot_=%d flowlet=%u\n"
 		// 	,conga_enabled(),Scheduler::instance().clock(),nodeID_,iph->src_,iph->dst_,cmnh->flowID,cmnh->size_,cmnh->ecmpHashKey,maxslot_,loadBalanceFlowlet_);
 		// 	fclose(fpResult);
-		// }
-
-		
+		// }		
 	}
+
+	if (clb_enabled == 1)
+	{
+		assert(clb_ != 0);
+		clb_->recv(p, h);
+	}
+
+
 
 	/////CG add
 	if(CLB_Node_==1 && ifTunnel==0)
@@ -286,6 +294,25 @@ int Classifier::command(int argc, const char*const* argv)
                                 tcl.result(default_target_->name());
                         return (TCL_OK);
                 }
+
+                if (strcmp(argv[1], "enable-clb") == 0) {
+                        if (clb_enabled == 1 && clb_ != 0)
+                        	return (TCL_OK);
+
+                        if (n_ == 0) {
+                        	tcl.resultf("Classifier::%p instance did not attach to a node!", this);
+                        	return(TCL_ERROR);
+                        }
+                        
+                        clb_ = new CLB(n_, this);
+                        clb_enabled = 1;
+
+                        fprintf(stderr,"%lf-Node-%d: clb_=%p, clb_enabled_=%d initializing clb(%p,%p) \n"
+							,Scheduler::instance().clock(),n_->address(),clb_,clb_enabled,n_,this);
+						return TCL_OK;
+                }
+
+
     } else if (argc == 3) {
 		/*
 		 * $classifier alloc-port nullagent
@@ -412,3 +439,6 @@ Conga* Classifier::conga_()
 	}
 	return conga_instance;
 }
+
+
+

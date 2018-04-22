@@ -71,6 +71,26 @@ struct CongaRow
 	int congDegree;
 };
 
+struct CLBRow
+{
+	// used by sender to receiver
+	bool record_en;
+	unsigned vp_id;
+	bool p_en;
+	unsigned p_index;
+	unsigned SN_HSN;
+	unsigned gen_id;
+	unsigned block_size;
+
+	// used by receiver to response for a route
+	bool response_en;
+	unsigned vp_rid;
+	unsigned vp_rcnt;
+};
+
+
+
+
 // Used by wireless routing code to attach routing agent
 #define RT_PORT		255	/* port that all route msgs are sent to */
 
@@ -742,6 +762,8 @@ struct hdr_cmn {
 	struct CongaRow congaRouteRow;////WF add for conga row
 	struct CongaRow congaResponseRow;
 
+	struct CLBRow	clb_row;	////WF add for clb
+
 
 	unsigned ecmpHashKey;///For ECMP routing
 	int flowID;
@@ -808,6 +830,7 @@ inline Packet* Packet::alloc()
 	memset(&(HDR_CMN(p))->gaInfo,0,sizeof(GaPacketInfo));//CG add
 	memset(&(HDR_CMN(p))->congaRouteRow,0,sizeof(CongaRow));
 	memset(&(HDR_CMN(p))->congaResponseRow,0,sizeof(CongaRow));
+	memset(&(HDR_CMN(p))->clb_row,0,sizeof(CLBRow));
 	return (p);
 }
 

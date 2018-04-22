@@ -39,12 +39,13 @@
 
 #include "object.h"
 // #include "node.h"
-#include "clb/conga.h"
+
 
 class Node;
-
 class Packet;
 
+class Conga;
+class CLB;
 class CLBFlowClassifier;
 
 class Classifier : public NsObject {
@@ -130,6 +131,10 @@ protected:
 	Node *n_;		//WF add	/* container node pointer */	
 
 	Conga* conga_instance; //WF add
+	
+	int clb_enabled;	//clb flag
+	CLB* clb_; 		//CLB instance 
+
 
 
 };

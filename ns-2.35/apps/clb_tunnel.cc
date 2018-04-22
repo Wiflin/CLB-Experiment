@@ -72,119 +72,119 @@
 #define MAINTAIN_VP_LOWHOLD 20
 
 
- CLBTunnelAgent::CLBTunnelAgent(Classifier* agent_, int N, int P)
+CLBTunnelAgent::CLBTunnelAgent(Classifier* agent_, int N, int P)
  :encodeTimer_(this), decodeTimer_(this)
- {
- 	ParentClassifier_=agent_;
- 	BlockSize_N=N;
- 	BlockSize_MaxP=P;
- 	BlockSize_MaxK=BlockSize_N-BlockSize_MaxP;
-	// printf("%lf-NODE %d: BlockSize N=%d,P=%d!\n",Scheduler::instance().clock(),ParentClassifier_->nodeID(),BlockSize_N,BlockSize_MaxP);
- 	initCLBTunnel();
- }
+{
+	ParentClassifier_=agent_;
+	BlockSize_N=N;
+	BlockSize_MaxP=P;
+	BlockSize_MaxK=BlockSize_N-BlockSize_MaxP;
+// printf("%lf-NODE %d: BlockSize N=%d,P=%d!\n",Scheduler::instance().clock(),ParentClassifier_->nodeID(),BlockSize_N,BlockSize_MaxP);
+	initCLBTunnel();
+}
 
 
- CLBTunnelAgent::~CLBTunnelAgent()
- {
- 	printf("%lf-NODE %d: TCP done!\n",Scheduler::instance().clock(),ParentClassifier_->nodeID());
- 	encodeTimer_.cancel();
- 	decodeTimer_.cancel();
+CLBTunnelAgent::~CLBTunnelAgent()
+{
+	printf("%lf-NODE %d: TCP done!\n",Scheduler::instance().clock(),ParentClassifier_->nodeID());
+	encodeTimer_.cancel();
+	decodeTimer_.cancel();
 
- 	delete [] VPCost;
- 	delete [] VPRateEstimation;
- 	delete [] VPLastUpdateTime;
- 	delete [] VPPacketsSent;
- 	delete [] VPPacketsAcked;
- 	delete [] VPPacketsOnFly;
- 	delete [] FeedbackVPAckedPackets;
- 	for(int i=0;i<ReorderGenNumber;i++)
- 	{
- 		delete [] parityBuffer_[i].buffer;
- 	}	
- 	delete [] parityBuffer_;
- 	delete [] reorderBuffer_.buffer;
- 	delete [] encodeBuffer_.buffer;
- 	delete [] VPSelectCondition;
- 	ParityWaitToBeSent=NULL;
- }
+	delete [] VPCost;
+	delete [] VPRateEstimation;
+	delete [] VPLastUpdateTime;
+	delete [] VPPacketsSent;
+	delete [] VPPacketsAcked;
+	delete [] VPPacketsOnFly;
+	delete [] FeedbackVPAckedPackets;
+	for(int i=0;i<ReorderGenNumber;i++)
+	{
+		delete [] parityBuffer_[i].buffer;
+	}	
+	delete [] parityBuffer_;
+	delete [] reorderBuffer_.buffer;
+	delete [] encodeBuffer_.buffer;
+	delete [] VPSelectCondition;
+	ParityWaitToBeSent=NULL;
+}
 
- void CLBTunnelAgent::initCLBTunnel()
- {
- 	currentFeedbackVP=0;
- 	currentGenID=0;
- 	currentGenIndex=0;
- 	expectHandOverGenIndex=0;
- 	headReorderBuffer=0;
+void CLBTunnelAgent::initCLBTunnel()
+{
+	currentFeedbackVP=0;
+	currentGenID=0;
+	currentGenIndex=0;
+	expectHandOverGenIndex=0;
+	headReorderBuffer=0;
 
- 	LatestChangedFeedbackVPAckedPackets=-1;
+	LatestChangedFeedbackVPAckedPackets=-1;
 	/////-1 means no recent changes scince last feedback. else means who is the most recently changed
- 	usedVP=0;
- 	countExploredOnceVP=0;
+	usedVP=0;
+	countExploredOnceVP=0;
 
 
- 	VPCost=new double [VPNumber];
- 	memset(VPCost,0,VPNumber*sizeof(double));
+	VPCost=new double [VPNumber];
+	memset(VPCost,0,VPNumber*sizeof(double));
 
- 	VPRateEstimation=new double [VPNumber];
- 	memset(VPRateEstimation,0,VPNumber*sizeof(double));
- 	VPLastUpdateTime=new double [VPNumber];
- 	memset(VPLastUpdateTime,0,VPNumber*sizeof(double));
+	VPRateEstimation=new double [VPNumber];
+	memset(VPRateEstimation,0,VPNumber*sizeof(double));
+	VPLastUpdateTime=new double [VPNumber];
+	memset(VPLastUpdateTime,0,VPNumber*sizeof(double));
 
- 	VPPacketsSent=new int [VPNumber];
- 	memset(VPPacketsSent,0,VPNumber*sizeof(int));
- 	VPPacketsAcked=new int [VPNumber];
- 	memset(VPPacketsAcked,0,VPNumber*sizeof(int));
- 	VPPacketsOnFly=new int [VPNumber];
- 	memset(VPPacketsOnFly,0,VPNumber*sizeof(int));
- 	FeedbackVPAckedPackets=new int [VPNumber];
- 	memset(FeedbackVPAckedPackets,0,VPNumber*sizeof(int));
+	VPPacketsSent=new int [VPNumber];
+	memset(VPPacketsSent,0,VPNumber*sizeof(int));
+	VPPacketsAcked=new int [VPNumber];
+	memset(VPPacketsAcked,0,VPNumber*sizeof(int));
+	VPPacketsOnFly=new int [VPNumber];
+	memset(VPPacketsOnFly,0,VPNumber*sizeof(int));
+	FeedbackVPAckedPackets=new int [VPNumber];
+	memset(FeedbackVPAckedPackets,0,VPNumber*sizeof(int));
 
- 	BlockSize_K=BlockSize_N-BlockSize_MaxP;
+	BlockSize_K=BlockSize_N-BlockSize_MaxP;
 
- 	parityBuffer_=new ParityBuffer [ReorderGenNumber];
- 	memset(parityBuffer_,0,ReorderGenNumber*sizeof(ParityBuffer));
- 	for(int i=0;i<ReorderGenNumber;i++)
- 	{
- 		parityBuffer_[i].capacity=BlockSize_MaxP;
- 		parityBuffer_[i].ifUpdated=0;
+	parityBuffer_=new ParityBuffer [ReorderGenNumber];
+	memset(parityBuffer_,0,ReorderGenNumber*sizeof(ParityBuffer));
+	for(int i=0;i<ReorderGenNumber;i++)
+	{
+		parityBuffer_[i].capacity=BlockSize_MaxP;
+		parityBuffer_[i].ifUpdated=0;
 
- 		parityBuffer_[i].count=0;
- 		parityBuffer_[i].genID=i;
- 		parityBuffer_[i].blockSize=BlockSize_K;
- 		parityBuffer_[i].headIndex=i;
- 		parityBuffer_[i].lastGenOriginalIndex=i+BlockSize_K;
- 		parityBuffer_[i].buffer=new Packet* [BlockSize_MaxP];
- 		memset(parityBuffer_[i].buffer,0,BlockSize_MaxP*sizeof(Packet*));
- 	}
- 	packetsCountInParityBuffer=0;
+		parityBuffer_[i].count=0;
+		parityBuffer_[i].genID=i;
+		parityBuffer_[i].blockSize=BlockSize_K;
+		parityBuffer_[i].headIndex=i;
+		parityBuffer_[i].lastGenOriginalIndex=i+BlockSize_K;
+		parityBuffer_[i].buffer=new Packet* [BlockSize_MaxP];
+		memset(parityBuffer_[i].buffer,0,BlockSize_MaxP*sizeof(Packet*));
+	}
+	packetsCountInParityBuffer=0;
 
- 	reorderBuffer_.head=0;
- 	reorderBuffer_.count=0;
- 	reorderBuffer_.capacity=ReorderGenNumber*BlockSize_K;
- 	reorderBuffer_.headIndex=0;
- 	reorderBuffer_.buffer=new Packet* [ReorderGenNumber*BlockSize_K];
- 	memset(reorderBuffer_.buffer,0,ReorderGenNumber*BlockSize_K*sizeof(Packet*));
- 	packetsUnHandedInReorderBuffer=0;
+	reorderBuffer_.head=0;
+	reorderBuffer_.count=0;
+	reorderBuffer_.capacity=ReorderGenNumber*BlockSize_K;
+	reorderBuffer_.headIndex=0;
+	reorderBuffer_.buffer=new Packet* [ReorderGenNumber*BlockSize_K];
+	memset(reorderBuffer_.buffer,0,ReorderGenNumber*BlockSize_K*sizeof(Packet*));
+	packetsUnHandedInReorderBuffer=0;
 
- 	encodeBuffer_.head=0;
- 	encodeBuffer_.tail=0;
- 	encodeBuffer_.length=0;
- 	encodeBuffer_.capacity=BlockSize_K;
- 	encodeBuffer_.buffer=new Packet* [BlockSize_K];
- 	memset(encodeBuffer_.buffer,0,BlockSize_K*sizeof(Packet*));
+	encodeBuffer_.head=0;
+	encodeBuffer_.tail=0;
+	encodeBuffer_.length=0;
+	encodeBuffer_.capacity=BlockSize_K;
+	encodeBuffer_.buffer=new Packet* [BlockSize_K];
+	memset(encodeBuffer_.buffer,0,BlockSize_K*sizeof(Packet*));
 
- 	VPSelectCondition=new int [VPNumber];
- 	memset(VPSelectCondition,0,VPNumber*sizeof(int));
+	VPSelectCondition=new int [VPNumber];
+	memset(VPSelectCondition,0,VPNumber*sizeof(int));
 
- 	currentGeneratedParityNumber=0;
+	currentGeneratedParityNumber=0;
 
- 	codingRateBlockSize=BlockSize_K;
- }
+	codingRateBlockSize=BlockSize_K;
+}
 
 
- void CLBTunnelAgent::recv(Packet* pkt, Handler*h)
- {
- 	hdr_cmn* cmnh = hdr_cmn::access(pkt);
+void CLBTunnelAgent::recv(Packet* pkt, Handler*h)
+{
+	hdr_cmn* cmnh = hdr_cmn::access(pkt);
 	if(cmnh->ptype()==PT_RTPROTO_DV)////Don't deal with DV packets
 	{
 		targetRecv(pkt,h);
@@ -480,7 +480,7 @@ int CLBTunnelAgent::findNextFeedbackVP(int vp)
 {
 	int nextVP=(vp+1)%VPNumber;
 
-/*	if(LatestChangedFeedbackVPAckedPackets==-1)
+	/*	if(LatestChangedFeedbackVPAckedPackets==-1)
 	{
 		nextVP=(vp+1)%VPNumber;
 	}

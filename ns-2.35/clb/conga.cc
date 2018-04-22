@@ -64,8 +64,6 @@ Conga::Conga(Node* node, int slots, int leafDownPortNumber) :
 		route_debug_(0), all_pkts_debug_(0),
 		n_(node), slots_(slots), leafDownPortNumber_(leafDownPortNumber) 
 {
-	mkdir("CLB",0777);
-	system("exec rm -r -f CLB/*");
 }
 
 

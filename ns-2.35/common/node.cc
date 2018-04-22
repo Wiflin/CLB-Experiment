@@ -45,6 +45,7 @@
 #ifdef HAVE_STL
 #include "nix/nixnode.h"
 #endif //HAVE_STL
+#include "clb/conga.h"
 #include "node.h"
 
 static class LinkHeadClass : public TclClass {
@@ -250,6 +251,8 @@ Node::command(int argc, const char*const* argv)
                                  return (TCL_ERROR);
 		}
 	} else if (argc == 4) {
+
+		//WF add begin!
 		if (strcmp(argv[1], "enable-conga") == 0) {
 			// if(conga_enabled_ == 1 && conga_)
 			// 	return TCL_OK;
@@ -267,7 +270,10 @@ Node::command(int argc, const char*const* argv)
 				conga_->route_queue(argv[2],argv[3]);
 				return TCL_OK;
 			}
-		}	
+		}
+
+		//WF add end!
+
 	}
 
 	return ParentNode::command(argc,argv);

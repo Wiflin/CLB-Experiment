@@ -169,7 +169,6 @@ public:
 	//WF add 
 	Conga* conga_get_instance() { return conga_; }
 	int conga_enabled() {return conga_enabled_;}
-
 	//WF add end
 
 
