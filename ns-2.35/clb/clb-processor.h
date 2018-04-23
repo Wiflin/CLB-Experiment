@@ -60,26 +60,31 @@
 class Node;
 class Classifier;
 
-
+// #####################################
 // used by a sender
 struct ca_record
 {
 	unsigned send_cnt;
 	unsigned recv_cnt;
-	double	 time;
+	unsigned send_undefined;
+	unsigned recv_origin;
 	double 	 rate;
+	double 	 fresh_time;
+	double	 update_time;
+
+	//just for ns2 simulator, it isn't needed in real
+	// double 	 last_update_time;
 
 	//control data
 	int 	valid;
 	int 	pending;
 };
-
 struct vp_record {
 	unsigned hashkey;
 	struct ca_record ca_row;
 };
 
-
+//#######################################
 // used by a receiver
 // round robin by a queue 
 struct ca_response {
@@ -88,6 +93,7 @@ struct ca_response {
 	double time;
 };
 
+// ########################################
 
 class CLBProcessor
 {
@@ -95,8 +101,8 @@ public:
 	CLBProcessor(Node*, Classifier*, CLB*);
 	~CLBProcessor();
 
-	void recv(Packet* p, Handler*h);
-	void send(Packet* p, Handler*h);
+	int recv(Packet* p, Handler*h);
+	int send(Packet* p, Handler*h);
 
 private:
 	//virtual path record reference
@@ -108,12 +114,24 @@ private:
 	void			ca_free();
 	ca_response*	ca_next();
 
+	// function s
+	double calculate_rate(struct ca_response*, int);
+	void ca_record_send(struct ca_record* ca);
+
+	void init_vp_record(struct vp_record* vp);
+	void init_ca_record(struct ca_record* ca_row);
+	void init_ca_response(struct ca_response* ca);
+	void update_ca_record(struct ca_record* ca_row, unsigned current_recv);
+
+
 	Node* 		n_;
 	Classifier*	c_;
 	CLB* 		clb_;
 
 	// just for fun?
+	unsigned			sequence;
 	struct ca_record	global_ca;
+	struct ca_response	global_response;
 
 	queue < vp_record** >		vp_queue;
 	map < int, vp_record** >		vp_map;

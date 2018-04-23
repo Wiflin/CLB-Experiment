@@ -60,36 +60,69 @@
 #include "clb.h"
 
 
+#define RATE_ALPHA ((double)0.25)
 
 CLBProcessor::CLBProcessor(Node* node, Classifier* classifier, CLB* clb)
  : n_(node), c_(classifier), clb_(clb)
 {
 	srand(time(NULL));
 
-	global_ca = {
-		0, 0, Scheduler::instance().clock(), -1, 1, 1
+	sequence = 0;
+
+	init_ca_record(&global_ca);
+
+	global_response = {
+		0, 0, 0
 	};
 }
 
 
 
-void CLBProcessor::recv(Packet* p, Handler*h)
+int CLBProcessor::recv(Packet* p, Handler*h)
 {
+	if ((clb_->VP_Module & clb_->CA_Module) == 0)
+		return 0;
+
+	hdr_ip* iph = hdr_ip::access(p);
+	hdr_cmn* cmnh = hdr_cmn::access(p);
+
+	// make no sense
+	if (cmnh->clb_row.record_en != 1 || 
+		cmnh->clb_row.response_en != 1 )
+		return 0;
+
+	// if only VP_Module is enabled, the sender will do nothing
+	if (clb_->VP_Module == 1)
+		;
+
+	// if only CA_Module is enabled, the sender will 
+	// 1. update the global_ca_row as a sender
+	// 2. update the global_ca_response as a receiver
+	// @cautious!	it make no sense when both module are enabled!
+	if (clb_->CA_Module == 1)
+	{
+		update_ca_record(&global_ca, cmnh->clb_row.vp_rcnt);
+	}
 
 
+	if ((clb_->VP_Module & clb_->CA_Module) == 1)
+	{
 
+
+	return 0;
 }
 
 
 
-void CLBProcessor::send(Packet* p, Handler*h)
+int CLBProcessor::send(Packet* p, Handler*h)
 {
 	if ((clb_->VP_Module & clb_->CA_Module) == 0)
-		return;
+		return 0;
 
 
 	hdr_ip* iph = hdr_ip::access(p);
 	hdr_cmn* cmnh = hdr_cmn::access(p);
+
 
 	unsigned	clb_hashkey = 0;
 	unsigned	clb_sequence = 0;
@@ -108,15 +141,18 @@ void CLBProcessor::send(Packet* p, Handler*h)
 	// only congestion module enabled
 	if (clb_->CA_Module == 1)
 	{
-		global_ca.send_cnt += 1;
-		clb_sequence = global_ca.send_cnt;
-		clb_recv_cnt = global_ca.recv_cnt;
+		// send
+		sequence += 1;
+		ca_record_send(&global_ca);
+		clb_sequence = sequence;
+		// response
+		clb_recv_cnt = global_response.recv_cnt;
 	}
 
 	// both are enabled
 	if ((clb_->VP_Module & clb_->CA_Module) == 1)
 	{
-		vp->ca_row.send_cnt += 1;
+		ca_record_send(&vp->ca_row);
 
 		if ((ca = ca_next()) != NULL)
 		{
@@ -130,11 +166,13 @@ void CLBProcessor::send(Packet* p, Handler*h)
 	cmnh->ecmpHashKey = clb_hashkey;
 	cmnh->clb_row.vp_id = clb_hashkey;	
 	cmnh->clb_row.SN_HSN = clb_sequence;
-	cmnh->clb_row.record_en = 1;
+	cmnh->clb_row.record_en = 1;	// make no sense
 
 	cmnh->clb_row.vp_rid = clb_recv_vpid;
 	cmnh->clb_row.vp_rcnt = clb_recv_cnt;
-	cmnh->clb_row.response_en = 1;
+	cmnh->clb_row.response_en = 1;	// make no sense
+
+	return 0;
 }
 
 
@@ -185,4 +223,93 @@ ca_response* CLBProcessor::ca_next()
 		ca_response* t = ca_queue.pop();
 
 	}
+}
+
+
+
+double CLBProcessor::calculate_rate(struct ca_response* record, int pkts)
+{
+	// @todo how to calculate the rate 
+	// what is the 'minimun' and 'maximun' of the rate
+
+	// 1. becareful when the record is first used 
+	// (some variable may be initial with a uncommon value)
+
+
+	// 2. becareful about the inf/nan val
+	double time = Scheduler::instance().clock() - record->time;
+	unsigned cnt = pkts - record->recv_cnt;
+
+}
+
+
+// send variable incr
+void CLBProcessor::ca_record_send(struct ca_record* ca)
+{
+	// 1.update send_undefined
+
+	// 2.update fresh time
+
+}
+
+
+
+
+
+
+void CLBProcessor::init_vp_record(struct vp_record* vp)
+{
+	vp->hashkey = rand();
+
+	init_ca_record(&vp->ca_row);
+}
+
+void CLBProcessor::init_ca_record(struct ca_record* ca_row)
+{
+	ca_row->send_cnt = 0;
+	ca_row->recv_cnt = 0;
+	ca_row->send_undefined = 0;
+	ca_row->recv_origin = 0;
+	ca_row->update_time = Scheduler::instance().clock();
+	ca_row->fresh_time = Scheduler::instance().clock();
+	// ca_row->last_update_time = Scheduler::instance().clock();
+
+	// maybe change to current average of rate
+	ca_row->rate = 0;
+	ca_row->valid = 0;
+	ca_row->pending = 0;
+}
+
+
+void CLBProcessor::init_ca_response(struct ca_response* ca)
+{
+	ca->hashkey = 0;
+	ca->recv_cnt = 0;
+	ca->time = 0;
+}
+
+
+void CLBProcessor::update_ca_record(struct ca_record* ca_row, unsigned current_recv)
+{
+	double now = Scheduler::instance().clock();
+	unsigned delta_recv = current_recv - ca_row->recv_origin;
+	double	 delta_time = now - ca_row->update_time;
+
+	// 1. calculate new rate
+	// double rate = calculate_rate(&global_response, rcnt);
+	double old_rate = ca_row->rate;
+	double calculate_rate = (double) delta_recv / delta_time;
+	double new_rate = (1 - RATE_ALPHA) * old_rate + RATE_ALPHA * calculate_rate;
+	ca_row->rate = new_rate;
+
+	// 2. calculate new recv count
+
+	// 3. calculate new send count
+
+	// 4. update recv origin count
+	ca_row->recv_origin = current_recv;
+
+	// 5. update timer
+	ca_row->update_time = ca_row->fresh_time = Scheduler::instance().clock();
+
 }
