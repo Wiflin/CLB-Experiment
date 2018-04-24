@@ -61,6 +61,8 @@
 
 
 #define RATE_ALPHA ((double)0.25)
+#define SEND_ALPHA ((double)0.95)
+#define RECV_ALPHA ((double)0.95)
 
 CLBProcessor::CLBProcessor(Node* node, Classifier* classifier, CLB* clb)
  : n_(node), c_(classifier), clb_(clb)
@@ -101,12 +103,43 @@ int CLBProcessor::recv(Packet* p, Handler*h)
 	// @cautious!	it make no sense when both module are enabled!
 	if (clb_->CA_Module == 1)
 	{
-		update_ca_record(&global_ca, cmnh->clb_row.vp_rcnt);
+		// work as a sender -> update sender-record according feedback vp_rcnt
+		if (cmnh->clb_row.response_en == 1)
+			update_ca_record(&global_ca, cmnh->	clb_row.vp_rcnt);
+		// work as a receiver -> update (hashkey,recv-cnt) tuple according what?
+		update_ca_response(&global_response);
 	}
 
 
 	if ((clb_->VP_Module & clb_->CA_Module) == 1)
 	{
+		// work as a sender -> update sender-record according feedback vp_rcnt
+		if (cmnh->clb_row.response_en == 1)
+		{
+			struct vp_record* vp = vp_get(cmnh->clb_row.vp_rid);
+
+			if (vp == 0)
+				fprintf(stderr, "[clb-processor recv] couldn't get vp_record instance!\n");
+			
+			assert(vp != 0);
+			assert(vp->hashkey == cmnh->clb_row.vp_rid);
+
+			update_ca_record(&vp->ca_row, cmnh->clb_row.vp_rcnt);
+		}
+
+
+		// work as a receiver -> update (hashkey,recv-cnt) tuple according what?
+		assert(cmnh->clb_row.vp_id != 0);
+		struct ca_response* response = ca_get(cmnh->clb_row.vp_id);
+
+		if (response == 0)
+			response = ca_alloc(cmnh->clb_row.vp_id);
+
+		if (response)
+			update_ca_response(response);
+		else 
+			fprintf(stderr, "[clb-processor recv] couldn't get ca_response instance!\n");
+	}
 
 
 	return 0;
@@ -128,8 +161,8 @@ int CLBProcessor::send(Packet* p, Handler*h)
 	unsigned	clb_sequence = 0;
 	unsigned	clb_recv_vpid = 0;
 	unsigned	clb_recv_cnt = 0;
-	vp_record*		vp = NULL;
-	ca_response*	ca = NULL;
+	struct vp_record*	vp = NULL;
+	struct ca_response*	ca = NULL;
 
 	// only virtual path enbled
 	if (clb_->VP_Module == 1)
@@ -160,8 +193,6 @@ int CLBProcessor::send(Packet* p, Handler*h)
 			clb_recv_cnt = ca->recv_cnt;
 		}
 	}
-
-
 
 	cmnh->ecmpHashKey = clb_hashkey;
 	cmnh->clb_row.vp_id = clb_hashkey;	
@@ -227,20 +258,20 @@ ca_response* CLBProcessor::ca_next()
 
 
 
-double CLBProcessor::calculate_rate(struct ca_response* record, int pkts)
-{
-	// @todo how to calculate the rate 
-	// what is the 'minimun' and 'maximun' of the rate
+// double CLBProcessor::calculate_rate(struct ca_response* record, int pkts)
+// {
+// 	// @todo how to calculate the rate 
+// 	// what is the 'minimun' and 'maximun' of the rate
 
-	// 1. becareful when the record is first used 
-	// (some variable may be initial with a uncommon value)
+// 	// 1. becareful when the record is first used 
+// 	// (some variable may be initial with a uncommon value)
 
 
-	// 2. becareful about the inf/nan val
-	double time = Scheduler::instance().clock() - record->time;
-	unsigned cnt = pkts - record->recv_cnt;
+// 	// 2. becareful about the inf/nan val
+// 	double time = Scheduler::instance().clock() - record->time;
+// 	unsigned cnt = pkts - record->recv_cnt;
 
-}
+// }
 
 
 // send variable incr
@@ -303,13 +334,31 @@ void CLBProcessor::update_ca_record(struct ca_record* ca_row, unsigned current_r
 	ca_row->rate = new_rate;
 
 	// 2. calculate new recv count
+	unsigned old_recv = ca_row->recv_cnt;
+	unsigned new_recv = RECV_ALPHA * old_recv + delta_recv;
+	ca_row->recv_cnt = new_recv;
 
 	// 3. calculate new send count
+	unsigned old_send = ca_row->send_cnt;
+	unsigned undef_send = ca_row->send_undefined;
+	unsigned new_send = SEND_ALPHA * old_send + undef_send;
+	ca_row->send_cnt = new_send;
+	
+	// 4. update send-undefine
+	ca_row->send_undefined = 0;
 
-	// 4. update recv origin count
+	// 5. update recv origin count
 	ca_row->recv_origin = current_recv;
 
-	// 5. update timer
+
+	// 6. update timer
 	ca_row->update_time = ca_row->fresh_time = Scheduler::instance().clock();
 
+}
+
+
+void CLBProcessor::update_ca_response(struct ca_response* response)
+{
+	response->recv_cnt += 1;
+	response->time = Scheduler::instance().clock();
 }

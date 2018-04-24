@@ -106,23 +106,25 @@ public:
 
 private:
 	//virtual path record reference
-	vp_record* 	vp_alloc();
-	void		vp_free();
-	vp_record*	vp_next();
+	struct vp_record* 	vp_alloc();
+	void				vp_free();
+	struct vp_record*	vp_next();
+	struct vp_record*	vp_get(unsigned);
 	//congestion aware record reference
-	ca_response*	ca_alloc();
-	void			ca_free();
-	ca_response*	ca_next();
+	struct ca_response*	ca_alloc(unsigned);
+	void				ca_free();
+	struct ca_response*	ca_next();
+	struct ca_response*	ca_get(unsigned);
 
 	// function s
-	double calculate_rate(struct ca_response*, int);
+	// double calculate_rate(struct ca_response*, int);
 	void ca_record_send(struct ca_record* ca);
 
 	void init_vp_record(struct vp_record* vp);
 	void init_ca_record(struct ca_record* ca_row);
 	void init_ca_response(struct ca_response* ca);
 	void update_ca_record(struct ca_record* ca_row, unsigned current_recv);
-
+	void update_ca_response(struct ca_response* response);
 
 	Node* 		n_;
 	Classifier*	c_;
