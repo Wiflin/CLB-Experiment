@@ -300,13 +300,15 @@ void CLBProcessor::init_ca_record(struct ca_record* ca_row)
 	ca_row->send_cnt = 0;
 	ca_row->recv_cnt = 0;
 	ca_row->send_undefined = 0;
-	ca_row->recv_origin = 0;
-	ca_row->update_time = Scheduler::instance().clock();
-	ca_row->fresh_time = Scheduler::instance().clock();
-	// ca_row->last_update_time = Scheduler::instance().clock();
+	ca_row->recv_undefined = 0;
 
 	// maybe change to current average of rate
 	ca_row->rate = 0;
+	ca_row->flying = 0;
+
+	ca_row->update_time = Scheduler::instance().clock();
+	ca_row->fresh_time = Scheduler::instance().clock();
+	// ca_row->last_update_time = Scheduler::instance().clock();
 	ca_row->valid = 0;
 	ca_row->pending = 0;
 }
@@ -323,36 +325,36 @@ void CLBProcessor::init_ca_response(struct ca_response* ca)
 void CLBProcessor::update_ca_record(struct ca_record* ca_row, unsigned current_recv)
 {
 	double now = Scheduler::instance().clock();
-	unsigned delta_recv = current_recv - ca_row->recv_origin;
+	unsigned delta_recv = current_recv - ca_row->recv_cnt;
 	double	 delta_time = now - ca_row->update_time;
 
 	// 1. calculate new rate
 	// double rate = calculate_rate(&global_response, rcnt);
-	double old_rate = ca_row->rate;
-	double calculate_rate = (double) delta_recv / delta_time;
-	double new_rate = (1 - RATE_ALPHA) * old_rate + RATE_ALPHA * calculate_rate;
-	ca_row->rate = new_rate;
+	// double old_rate = ca_row->rate;
+	// double calculate_rate = (double) delta_recv / delta_time;
+	// double new_rate = (1 - RATE_ALPHA) * old_rate + RATE_ALPHA * calculate_rate;
+	// ca_row->rate = new_rate;
 
-	// 2. calculate new recv count
-	unsigned old_recv = ca_row->recv_cnt;
-	unsigned new_recv = RECV_ALPHA * old_recv + delta_recv;
-	ca_row->recv_cnt = new_recv;
+	// // 2. calculate new recv count
+	// unsigned old_recv = ca_row->recv_cnt;
+	// unsigned new_recv = RECV_ALPHA * old_recv + delta_recv;
+	// ca_row->recv_cnt = new_recv;
 
-	// 3. calculate new send count
-	unsigned old_send = ca_row->send_cnt;
-	unsigned undef_send = ca_row->send_undefined;
-	unsigned new_send = SEND_ALPHA * old_send + undef_send;
-	ca_row->send_cnt = new_send;
+	// // 3. calculate new send count
+	// unsigned old_send = ca_row->send_cnt;
+	// unsigned undef_send = ca_row->send_undefined;
+	// unsigned new_send = SEND_ALPHA * old_send + undef_send;
+	// ca_row->send_cnt = new_send;
 	
-	// 4. update send-undefine
-	ca_row->send_undefined = 0;
+	// // 4. update send-undefine
+	// ca_row->send_undefined = 0;
 
-	// 5. update recv origin count
-	ca_row->recv_origin = current_recv;
+	// // 5. update recv origin count
+	// ca_row->recv_origin = current_recv;
 
 
-	// 6. update timer
-	ca_row->update_time = ca_row->fresh_time = Scheduler::instance().clock();
+	// // 6. update timer
+	// ca_row->update_time = ca_row->fresh_time = Scheduler::instance().clock();
 
 }
 

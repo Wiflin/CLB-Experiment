@@ -67,7 +67,8 @@ struct ca_record
 	unsigned send_cnt;
 	unsigned recv_cnt;
 	unsigned send_undefined;
-	unsigned recv_origin;
+	unsigned recv_undefined;
+	double	 flying;
 	double 	 rate;
 	double 	 fresh_time;
 	double	 update_time;
