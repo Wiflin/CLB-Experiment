@@ -55,10 +55,11 @@
 #include <sys/stat.h> 
 #include <map>
 #include <queue>
-#include "clb.h"
 
 class Node;
 class Classifier;
+class CLB;
+class CLBProcessor;
 
 // #####################################
 // used by a sender
@@ -71,7 +72,7 @@ struct ca_record
 	double	 flying;
 	double 	 rate;
 	double 	 fresh_time;
-	double	 update_time;
+	double	 update_time;	
 
 	//just for ns2 simulator, it isn't needed in real
 	// double 	 last_update_time;
@@ -96,51 +97,116 @@ struct ca_response {
 
 // ########################################
 
+class CLBProcessorTimer : public TimerHandler {
+public: 
+	CLBProcessorTimer(CLBProcessor * a) : TimerHandler() { a_ = a; }
+protected:
+	virtual void expire(Event *e);
+	CLBProcessor *a_;
+};
+
+
+
 class CLBProcessor
 {
 public:
-	CLBProcessor(Node*, Classifier*, CLB*);
+	CLBProcessor(Node*, Classifier*, CLB*, int, int);
 	~CLBProcessor();
 
 	int recv(Packet* p, Handler*h);
 	int send(Packet* p, Handler*h);
 
-private:
+	void expire(Event *e);
+
+protected:
+	
 	//virtual path record reference
 	struct vp_record* 	vp_alloc();
-	void				vp_free();
-	struct vp_record*	vp_next();
-	struct vp_record*	vp_get(unsigned);
+	void				vp_free(unsigned);
+	struct vp_record*	vp_next();	// SHOULD ALLOC INSTANCE IF IT'S NEEDED
+	struct vp_record*	vp_get(unsigned);	// DO NOT NEED TO ALLOC INSTANCE
 	//congestion aware record reference
 	struct ca_response*	ca_alloc(unsigned);
-	void				ca_free();
+	void				ca_free(unsigned);
 	struct ca_response*	ca_next();
-	struct ca_response*	ca_get(unsigned);
+	struct ca_response*	ca_get(unsigned);	// DO NOT NEED TO ALLOC INSTANCE
 
 	// function s
 	// double calculate_rate(struct ca_response*, int);
+	double cost(struct ca_record* ca);
 	void ca_record_send(struct ca_record* ca);
-
-	void init_vp_record(struct vp_record* vp);
-	void init_ca_record(struct ca_record* ca_row);
-	void init_ca_response(struct ca_response* ca);
-	void update_ca_record(struct ca_record* ca_row, unsigned current_recv);
+	void ca_record_recv(struct ca_record* ca, unsigned current_recv);
+	void update_ca_record(struct ca_record* ca_row);
 	void update_ca_response(struct ca_response* response);
 
 	Node* 		n_;
 	Classifier*	c_;
 	CLB* 		clb_;
+	CLBProcessorTimer pt_;
+	int 		src_;
+	int 		dst_;
 
 	// just for fun?
 	unsigned			sequence;
 	struct ca_record	global_ca;
 	struct ca_response	global_response;
 
-	queue < vp_record** >		vp_queue;
-	map < int, vp_record** >		vp_map;
+	// queue < vp_record** >		vp_queue;
+	map < unsigned, struct vp_record* >		vp_map;
 
-	queue < ca_response** >		ca_queue;
-	map < int, ca_response** >	ca_map;
+	queue < unsigned >		ca_queue;
+	map < unsigned, struct ca_response* >	ca_map;
+
+
+	inline double init_rate() {
+		double irc = 1;
+		unsigned vpcnt = 0;
+		map < unsigned, struct vp_record* > :: iterator it = vp_map.begin();
+		
+		for ( ; it != vp_map.end(); ++it)
+		{
+			if (it->second->ca_row.valid == 0)
+				continue;
+
+			vpcnt += 1;
+			irc += it->second->ca_row.rate;
+
+		}
+		return (vpcnt ? (irc / vpcnt) : irc);
+	}
+
+	inline void init_vp_record(struct vp_record* vp) {
+		vp->hashkey = 0;
+		init_ca_record(&vp->ca_row);
+	}
+
+	inline void init_ca_record(struct ca_record* ca_row) {
+		ca_row->send_cnt = 0;
+		ca_row->recv_cnt = 0;
+		ca_row->send_undefined = 0;
+		ca_row->recv_undefined = 0;
+
+		// maybe change to current average of rate
+		ca_row->rate = init_rate();
+		ca_row->flying = 0;
+
+		ca_row->update_time = Scheduler::instance().clock();
+		ca_row->fresh_time = Scheduler::instance().clock();
+		// ca_row->last_update_time = Scheduler::instance().clock();
+		ca_row->valid = 1;
+		ca_row->pending = 0;
+	}
+
+	inline void init_ca_response(struct ca_response* ca) {
+		ca->hashkey = 0;
+		ca->recv_cnt = 0;
+		ca->time = Scheduler::instance().clock();
+	}
+
+
+
+	void flow_debug(char* str, Packet* p = NULL);
+
 };
 
 

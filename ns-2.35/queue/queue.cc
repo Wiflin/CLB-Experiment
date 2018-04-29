@@ -415,7 +415,8 @@ void Queue::printFlowPath(Packet* pkt)
 			if( it->srcAddr==iph->src().addr_
 				&& it->srcPort==iph->src().port_
 				&& it->dstAddr==iph->dst().addr_
-				&& it->dstPort==iph->dst().port_)
+				&& it->dstPort==iph->dst().port_
+				&& it->hashkey == cmnh->ecmpHashKey)
 			{
 			  return;
 			}
@@ -426,6 +427,7 @@ void Queue::printFlowPath(Packet* pkt)
 		tmp_map.srcPort=iph->src().port_;
 		tmp_map.dstAddr=iph->dst().addr_;
 		tmp_map.dstPort=iph->dst().port_;
+		tmp_map.hashkey=cmnh->ecmpHashKey;
 		FlowTable.push_back (tmp_map);
 	#endif
 

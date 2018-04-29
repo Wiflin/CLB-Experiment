@@ -47,6 +47,7 @@ struct flowInfo ///CG add
 	int srcPort;
 	int dstAddr;
 	int dstPort;
+	unsigned hashkey;
 };
 
 class Packet;

@@ -58,6 +58,7 @@
 #include <string>
 #include <sys/stat.h> 
 #include "clb.h"
+#include "clb-processor.h"
 
 
 
@@ -65,7 +66,8 @@
 
 CLB::CLB(Node* n, Classifier* c) : n_(n), c_(c)
 {
-	
+	mkdir("CLB",0777);
+	system("exec rm -r -f CLB/*");
 }
 
 void CLB::recv(Packet* p, Handler*h)
@@ -86,7 +88,7 @@ void CLB::recv(Packet* p, Handler*h)
 
 void CLB::recv_proc(Packet* p, Handler*h)
 {
-	CLBProcessor* np = get_node_processor(HDR_IP(p)->dst_.addr_);
+	CLBProcessor* np = get_node_processor(HDR_IP(p)->src_.addr_);
 
 	np->recv(p, h);
 
@@ -97,7 +99,7 @@ void CLB::send_proc(Packet* p, Handler*h)
 {
 	CLBProcessor* np = get_node_processor(HDR_IP(p)->dst_.addr_);
 
-	np->send(p, h)
+	np->send(p, h);
 
 	flow_debug(p, h, "[send packet]");	
 }
@@ -110,7 +112,7 @@ CLBProcessor* CLB::get_node_processor(int address)
 	if (it != node_table.end())
 		return it->second;
 
-	CLBProcessor* np = new CLBProcessor(n_, c_, this);
+	CLBProcessor* np = new CLBProcessor(n_, c_, this, n_->address(), address);
 	// @todo do some setting
 
 	node_table[address] = np;
@@ -124,7 +126,16 @@ void CLB::flow_debug(Packet* p, Handler*h, char* str)
 
 	char str1[128];
 	memset(str1,0,128*sizeof(char));
-	sprintf(str1,"CLB/recv_flowid_%d.tr",cmnh->flowID);
+	int addr = n_->address();
+	if (iph->dst_.addr_ == addr)
+	{
+		sprintf(str1,"CLB/processor_%d-%d.tr",addr,iph->src_.addr_);
+	}
+	else if (iph->src_.addr_ == addr)
+	{
+		sprintf(str1,"CLB/processor_%d-%d.tr",addr,iph->dst_.addr_);
+	}
+
 	FILE* fpResult=fopen(str1,"a+");
 	if(fpResult==NULL)
     {
@@ -132,8 +143,9 @@ void CLB::flow_debug(Packet* p, Handler*h, char* str)
     	// return(TCL_ERROR);
     } else {
 
-		fprintf(fpResult, "%lf-Node-%d-(%d->%d):flow=%d\tpacket=%d\tsize=%d\t%s\n",
-			Scheduler::instance().clock(),n_->nodeid(),iph->src_,iph->dst_,cmnh->flowID,p->uid(),cmnh->size_,str);		
+		fprintf(fpResult, "%lf-Node-%d-(%d->%d):flow=%d\tpacket=%d\tsize=%d\trecord=%d\tresponse=%d\tntsize=%d\t%s\n",
+			Scheduler::instance().clock(),n_->nodeid(),iph->src_,iph->dst_,cmnh->flowID,p->uid(),cmnh->size_,
+			cmnh->clb_row.record_en,cmnh->clb_row.response_en,node_table.size(),str);		
 		fclose(fpResult);
 	}
 }

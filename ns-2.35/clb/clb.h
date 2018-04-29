@@ -56,6 +56,9 @@
 #include <map>
 
 
+
+
+
 class Node;
 class Classifier;
 class CLBProcessor;
@@ -77,14 +80,6 @@ public:
 			system("exec rm -r -f CLB/*");
 		}
 	}
-
-
-	// Virtual Path Module enabled/disabled
-	const int VP_Module = 1;
-	// Congestion Aware Module enabled/disabled
-	const int CA_Module = 0;
-	// Eraser Code Module enabled/disabled
-	const int EC_Module = 0;
 
 private:
 	void recv_proc(Packet* p, Handler*h);

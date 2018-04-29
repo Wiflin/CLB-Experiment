@@ -51,21 +51,37 @@
 #include <vector>
 #include <map>
 #include <vector>
+#include <queue>
 #include "classifier.h"
 #include "node.h"
 #include "queue.h"
 #include <cstdlib>
 #include <string>
 #include <sys/stat.h> 
-#include "clb.h"
+#include "clb-processor.h"
+
+// Virtual Path Module enabled/disabled
+#define VP_Module 1
+// Congestion Aware Module enabled/disabled
+#define CA_Module 0
+// Eraser Code Module enabled/disabled
+#define EC_Module 0
+
+#define T_REFRESH  	((double)5E-4)
+#define T_VP_EXPIRE	((double)10)
+#define RATE_ALPHA 	((double)0.25)
+#define FLY_ALPHA	((double)0.75)
+#define VP_SIZE		((int)16)	
 
 
-#define RATE_ALPHA ((double)0.25)
-#define SEND_ALPHA ((double)0.95)
-#define RECV_ALPHA ((double)0.95)
+void CLBProcessorTimer::expire(Event *e)
+{
+	a_->expire(e);
+}
 
-CLBProcessor::CLBProcessor(Node* node, Classifier* classifier, CLB* clb)
- : n_(node), c_(classifier), clb_(clb)
+
+CLBProcessor::CLBProcessor(Node* node, Classifier* classifier, CLB* clb, int src, int dst)
+ : n_(node), c_(classifier), clb_(clb), pt_(this), src_(src), dst_(dst)
 {
 	srand(time(NULL));
 
@@ -73,58 +89,58 @@ CLBProcessor::CLBProcessor(Node* node, Classifier* classifier, CLB* clb)
 
 	init_ca_record(&global_ca);
 
-	global_response = {
-		0, 0, 0
-	};
+	init_ca_response(&global_response);
+
+	pt_.sched(T_REFRESH);
 }
 
 
 
 int CLBProcessor::recv(Packet* p, Handler*h)
 {
-	if ((clb_->VP_Module & clb_->CA_Module) == 0)
+	if ((VP_Module | CA_Module) == 0)
 		return 0;
 
 	hdr_ip* iph = hdr_ip::access(p);
 	hdr_cmn* cmnh = hdr_cmn::access(p);
 
 	// make no sense
-	if (cmnh->clb_row.record_en != 1 || 
+	if (cmnh->clb_row.record_en != 1 && 
 		cmnh->clb_row.response_en != 1 )
 		return 0;
 
 	// if only VP_Module is enabled, the sender will do nothing
-	if (clb_->VP_Module == 1)
+	if (VP_Module == 1)
 		;
 
 	// if only CA_Module is enabled, the sender will 
 	// 1. update the global_ca_row as a sender
 	// 2. update the global_ca_response as a receiver
 	// @cautious!	it make no sense when both module are enabled!
-	if (clb_->CA_Module == 1)
+	if (CA_Module == 1)
 	{
 		// work as a sender -> update sender-record according feedback vp_rcnt
-		if (cmnh->clb_row.response_en == 1)
-			update_ca_record(&global_ca, cmnh->	clb_row.vp_rcnt);
+		if (cmnh->clb_row.response_en == 1 && cmnh->clb_row.vp_rid == 0)
+			ca_record_recv(&global_ca, cmnh->clb_row.vp_rcnt);
 		// work as a receiver -> update (hashkey,recv-cnt) tuple according what?
 		update_ca_response(&global_response);
 	}
 
 
-	if ((clb_->VP_Module & clb_->CA_Module) == 1)
+	if ((VP_Module & CA_Module) == 1)
 	{
 		// work as a sender -> update sender-record according feedback vp_rcnt
-		if (cmnh->clb_row.response_en == 1)
+		if (cmnh->clb_row.response_en == 1 && cmnh->clb_row.vp_rid != 0)
 		{
 			struct vp_record* vp = vp_get(cmnh->clb_row.vp_rid);
 
 			if (vp == 0)
 				fprintf(stderr, "[clb-processor recv] couldn't get vp_record instance!\n");
 			
-			assert(vp != 0);
-			assert(vp->hashkey == cmnh->clb_row.vp_rid);
-
-			update_ca_record(&vp->ca_row, cmnh->clb_row.vp_rcnt);
+			else {
+				assert(vp->hashkey == cmnh->clb_row.vp_rid);
+				ca_record_recv(&vp->ca_row, cmnh->clb_row.vp_rcnt);
+			}
 		}
 
 
@@ -146,10 +162,10 @@ int CLBProcessor::recv(Packet* p, Handler*h)
 }
 
 
-
 int CLBProcessor::send(Packet* p, Handler*h)
 {
-	if ((clb_->VP_Module & clb_->CA_Module) == 0)
+	// flow_debug(p);
+	if ((VP_Module | CA_Module) == 0)
 		return 0;
 
 
@@ -165,14 +181,14 @@ int CLBProcessor::send(Packet* p, Handler*h)
 	struct ca_response*	ca = NULL;
 
 	// only virtual path enbled
-	if (clb_->VP_Module == 1)
+	if (VP_Module == 1)
 	{
 		vp = vp_next();
 		clb_hashkey = vp->hashkey;
 	}
 
 	// only congestion module enabled
-	if (clb_->CA_Module == 1)
+	if (CA_Module == 1)
 	{
 		// send
 		sequence += 1;
@@ -183,10 +199,10 @@ int CLBProcessor::send(Packet* p, Handler*h)
 	}
 
 	// both are enabled
-	if ((clb_->VP_Module & clb_->CA_Module) == 1)
+	if ((VP_Module & CA_Module) == 1)
 	{
 		ca_record_send(&vp->ca_row);
-
+		// response
 		if ((ca = ca_next()) != NULL)
 		{
 			clb_recv_vpid = ca->hashkey;
@@ -206,161 +222,311 @@ int CLBProcessor::send(Packet* p, Handler*h)
 	return 0;
 }
 
-
-
-vp_record* CLBProcessor::vp_alloc(unsigned hashkey)
+void CLBProcessor::expire(Event *e)
 {
-	vp_record*	vp = new vp_record();
-	vp_record** vpp = (vp_record**) new char[sizeof(&vp)];
+	// 1. foreach : update table row
+	double now = Scheduler::instance().clock();
+	map < unsigned, struct vp_record* > :: iterator it = vp_map.begin();
 
-	// assign vp address to vp pointer
-	*vpp = vp;
+	while (it != vp_map.end())
+	{
+		if (now - it->second->ca_row.fresh_time > T_VP_EXPIRE)
+		{
+			unsigned hashkey = it->first;
+			++it;
+			vp_free(hashkey);
+			continue;
+		}
 
-	assert(vp && vpp);
-	assert(*vpp == vp);
+		update_ca_record(&it->second->ca_row);
+		++it;
+	}
 
-	vp_queue.push(vpp);
-	vp_map[hashkey] = vpp;
+	// 2. resched()
+	pt_.resched(T_REFRESH);
+}
+
+struct vp_record* CLBProcessor::vp_alloc()
+{
+	unsigned hashkey = rand();
+
+	while (vp_map.find(hashkey) != vp_map.end())
+		hashkey = rand();
+
+	struct vp_record*	vp = new struct vp_record();
+
+	init_vp_record(vp);
+	vp->hashkey = hashkey;
+
+	vp_map[hashkey] = vp;
+
+
+	char str1[128];
+	sprintf(str1,"[clb-processor vp_alloc] hashkey=%d vpp=%p cost=%.16lf",hashkey,vp,cost(&vp->ca_row));
+	flow_debug(str1);
+
+
+	return vp;
 }
 
 
-void CLBProcessor::vp_free() 
+void CLBProcessor::vp_free(unsigned hashkey) 
 {
-
-}
-
-vp_record* CLBProcessor::vp_next()
-{
-
-}
+	char str1[128];
+	sprintf(str1,"[clb-processor vp_free] hashkey=%d",hashkey);
+	flow_debug(str1);
 
 
-
-ca_response* CLBProcessor::ca_alloc() 
-{
-
-}
-
-void CLBProcessor::ca_free() 
-{
+	map < unsigned, struct vp_record* > :: iterator it = vp_map.find(hashkey);
 	
+	if (it == vp_map.end())
+		return;
+
+	struct vp_record* vp = it->second;
+	delete vp;
+	vp = NULL;
+	vp_map.erase(it);
+}
+
+struct vp_record* CLBProcessor::vp_next()
+{
+	if (vp_map.size() < VP_SIZE)
+		return vp_alloc();
+
+	map < unsigned, struct vp_record* > :: iterator it = vp_map.begin();
+
+	double cost_min = 1E+37;
+	struct vp_record* vp = NULL;
+	int vp_cnt = 0;
+
+	for ( ; it != vp_map.end(); ++it)
+	{
+		if ( 0 == it->second->ca_row.valid )
+			continue;
+
+		vp_cnt += 1;
+
+		struct vp_record* vp_tmp = it->second;
+		double vp_cost = cost(&vp_tmp->ca_row);
+
+		if (vp_cost < cost_min) 
+		{
+			cost_min = vp_cost;
+			vp = vp_tmp;
+		}
+	} 
+
+	char str1[128];
+	sprintf(str1,"[clb-processor vp_next] %lf\thashkey=%d vpp=%p",Scheduler::instance().clock(),vp->hashkey,vp);
+	flow_debug(str1);
+
+	if (vp != 0)
+		return vp;
+
+	
+	fprintf(stderr, "[clb-processor vp_next] Could not find a vp_record! cost=%lf\tcnt=%d\tmap_size=%d\n",	
+		cost_min, vp_cnt, vp_map.size());
+
+	return NULL;
+}
+
+struct vp_record* CLBProcessor::vp_get(unsigned hashkey)
+{
+	map < unsigned, struct vp_record* > :: iterator it = vp_map.find(hashkey);
+
+	if (it == vp_map.end())
+		return NULL;
+
+	return it->second;
 }
 
 
-ca_response* CLBProcessor::ca_next()
+struct ca_response* CLBProcessor::ca_alloc(unsigned hashkey) 
 {
+	struct ca_response* ca = new struct ca_response();
+
+	init_ca_response(ca);
+	ca->hashkey = hashkey;
+
+	ca_map[hashkey] = ca;
+	ca_queue.push(hashkey);
+
+	return ca;
+}
+
+void CLBProcessor::ca_free(unsigned hashkey) 
+{
+
+	map < unsigned, struct ca_response* > :: iterator it = ca_map.find(hashkey);
+
+	if (it == ca_map.end())
+		return;
+
+	struct ca_response* ca = it->second;
+	delete ca;
+	ca = NULL;
+	ca_map.erase(it);
+}
+
+
+struct ca_response* CLBProcessor::ca_next()
+{
+	unsigned t = 0;
 	while (!ca_queue.empty())
 	{
-		ca_response* t = ca_queue.pop();
+		t = ca_queue.front();
+		ca_queue.pop();
 
-	}
+		if (ca_map.count(t) == 0)
+			continue;
+
+		if (Scheduler::instance().clock() - ca_map[t]->time > T_VP_EXPIRE)
+		{
+			ca_free(t);
+			continue;
+		}
+
+		ca_queue.push(t);
+		return ca_map[t];
+	} 
+	return NULL;
+}
+
+struct ca_response*	CLBProcessor::ca_get(unsigned hashkey)
+{
+	map < unsigned, struct ca_response* > :: iterator it = ca_map.find(hashkey);
+	return ( it == ca_map.end() ? NULL : it->second );
 }
 
 
 
-// double CLBProcessor::calculate_rate(struct ca_response* record, int pkts)
-// {
-// 	// @todo how to calculate the rate 
-// 	// what is the 'minimun' and 'maximun' of the rate
+double CLBProcessor::cost(struct ca_record* ca)
+{
+	// @todo how to calculate it
 
-// 	// 1. becareful when the record is first used 
-// 	// (some variable may be initial with a uncommon value)
+	// if (fabs(ca->rate) < 1E-2)
+		// calculate the average cost
+	unsigned fly = (unsigned)ca->flying + ca->send_undefined - ca->recv_undefined;
+	double cost_ = (double)(1 + fly) / ca->rate;
+	return cost_;
+}
 
-
-// 	// 2. becareful about the inf/nan val
-// 	double time = Scheduler::instance().clock() - record->time;
-// 	unsigned cnt = pkts - record->recv_cnt;
-
-// }
 
 
 // send variable incr
 void CLBProcessor::ca_record_send(struct ca_record* ca)
 {
 	// 1.update send_undefined
-
+	unsigned send_undefined = ca->send_undefined + 1;
 	// 2.update fresh time
+	ca->send_undefined = send_undefined;
+	ca->fresh_time = Scheduler::instance().clock();
 
+}
+
+void CLBProcessor::ca_record_recv(struct ca_record* ca, unsigned current_recv)
+{
+	unsigned recv_undefined = current_recv - ca->recv_cnt;
+
+	ca->recv_undefined = recv_undefined;
+	ca->fresh_time = Scheduler::instance().clock();
 }
 
 
 
-
-
-
-void CLBProcessor::init_vp_record(struct vp_record* vp)
+void CLBProcessor::update_ca_record(struct ca_record* ca_row)
 {
-	vp->hashkey = rand();
+	
+	double now = Scheduler::instance().clock();
+	double delta_time = now - ca_row->update_time;
 
-	init_ca_record(&vp->ca_row);
-}
+	// 1. calculate new rate
+	double old_rate = ca_row->rate;
+	double calculate_rate = (double) ca_row->recv_undefined / delta_time;
+	double new_rate = (1 - RATE_ALPHA) * old_rate + RATE_ALPHA * calculate_rate;
+	ca_row->rate = new_rate;
 
-void CLBProcessor::init_ca_record(struct ca_record* ca_row)
-{
-	ca_row->send_cnt = 0;
-	ca_row->recv_cnt = 0;
+	// 2. calculate new flying 
+	double old_fly = ca_row->flying;
+	double delta_fly = (double) ca_row->send_undefined - ca_row->recv_undefined;
+	double new_fly = (1 - FLY_ALPHA) * old_fly + FLY_ALPHA * delta_fly;
+	ca_row->flying = new_fly; 
+
+	// 3. calculate new recv & new send
+	ca_row->send_cnt += ca_row->send_undefined;
+	ca_row->recv_cnt += ca_row->recv_undefined;
+
+	// 4. reset send-undefine & recv-undefine
 	ca_row->send_undefined = 0;
 	ca_row->recv_undefined = 0;
 
-	// maybe change to current average of rate
-	ca_row->rate = 0;
-	ca_row->flying = 0;
-
+	// 6. update timer
 	ca_row->update_time = Scheduler::instance().clock();
-	ca_row->fresh_time = Scheduler::instance().clock();
-	// ca_row->last_update_time = Scheduler::instance().clock();
-	ca_row->valid = 0;
-	ca_row->pending = 0;
-}
-
-
-void CLBProcessor::init_ca_response(struct ca_response* ca)
-{
-	ca->hashkey = 0;
-	ca->recv_cnt = 0;
-	ca->time = 0;
-}
-
-
-void CLBProcessor::update_ca_record(struct ca_record* ca_row, unsigned current_recv)
-{
-	double now = Scheduler::instance().clock();
-	unsigned delta_recv = current_recv - ca_row->recv_cnt;
-	double	 delta_time = now - ca_row->update_time;
-
-	// 1. calculate new rate
-	// double rate = calculate_rate(&global_response, rcnt);
-	// double old_rate = ca_row->rate;
-	// double calculate_rate = (double) delta_recv / delta_time;
-	// double new_rate = (1 - RATE_ALPHA) * old_rate + RATE_ALPHA * calculate_rate;
-	// ca_row->rate = new_rate;
-
-	// // 2. calculate new recv count
-	// unsigned old_recv = ca_row->recv_cnt;
-	// unsigned new_recv = RECV_ALPHA * old_recv + delta_recv;
-	// ca_row->recv_cnt = new_recv;
-
-	// // 3. calculate new send count
-	// unsigned old_send = ca_row->send_cnt;
-	// unsigned undef_send = ca_row->send_undefined;
-	// unsigned new_send = SEND_ALPHA * old_send + undef_send;
-	// ca_row->send_cnt = new_send;
-	
-	// // 4. update send-undefine
-	// ca_row->send_undefined = 0;
-
-	// // 5. update recv origin count
-	// ca_row->recv_origin = current_recv;
-
-
-	// // 6. update timer
-	// ca_row->update_time = ca_row->fresh_time = Scheduler::instance().clock();
 
 }
 
 
+// when the processor recv a packet -> should update the ca_response as a receiver
 void CLBProcessor::update_ca_response(struct ca_response* response)
 {
 	response->recv_cnt += 1;
 	response->time = Scheduler::instance().clock();
+}
+
+
+
+
+// void CLBProcessor::init_vp_record(struct vp_record* vp)
+// {
+// 	vp->hashkey = rand();
+
+// 	init_ca_record(&vp->ca_row);
+// }
+
+// void CLBProcessor::init_ca_record(struct ca_record* ca_row)
+// {
+// 	ca_row->send_cnt = 0;
+// 	ca_row->recv_cnt = 0;
+// 	ca_row->send_undefined = 0;
+// 	ca_row->recv_undefined = 0;
+
+// 	// maybe change to current average of rate
+// 	ca_row->rate = 0;
+// 	ca_row->flying = 0;
+
+// 	ca_row->update_time = Scheduler::instance().clock();
+// 	ca_row->fresh_time = Scheduler::instance().clock();
+// 	// ca_row->last_update_time = Scheduler::instance().clock();
+// 	ca_row->valid = 0;
+// 	ca_row->pending = 0;
+// }
+
+
+// void CLBProcessor::init_ca_response(struct ca_response* ca)
+// {
+// 	ca->hashkey = 0;
+// 	ca->recv_cnt = 0;
+// 	ca->time = 0;
+// }
+
+
+
+void CLBProcessor::flow_debug(char* str, Packet* p)
+{
+	// hdr_ip* iph = hdr_ip::access(p);
+	// hdr_cmn* cmnh = hdr_cmn::access(p);
+
+	char str1[128];
+	memset(str1,0,128*sizeof(char));
+	sprintf(str1,"CLB/processor_%d-%d.tr",src_,dst_);
+	FILE* fpResult=fopen(str1,"a+");
+	if(fpResult==NULL)
+    {
+        fprintf(stderr,"Can't open file %s!\n","CLB/route_debug.tr");
+    	// return(TCL_ERROR);
+    } else {
+
+		fprintf(fpResult, "%s\n", str);		
+		fclose(fpResult);
+	}
 }
