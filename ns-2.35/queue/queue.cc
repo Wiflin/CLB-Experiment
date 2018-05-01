@@ -97,7 +97,8 @@ Queue::Queue() : Connector(), blocked_(0), unblock_on_resume_(1), qh_(*this),
 		 old_util_(0), period_begin_(0), cur_util_(0), buf_slot_(0),
 		 util_buf_(NULL),ifMoniterQueueLen_(0),ifMoniterE2EDelay_(0),
 		 ifMoniterFlowPath_(0),ifMoniterPathTrace_(0),
-		 ifTagTimeStamp_(0),ifHavePrint(0)
+		 ifTagTimeStamp_(0),ifHavePrint(0),
+		 ifMoniterFlowSpeed_(0),pFlowSpeedTimer(NULL)
 {
 	bind("limit_", &qlim_);
 	bind("util_weight_", &util_weight_);
@@ -156,6 +157,14 @@ int Queue::command(int argc, const char*const* argv)
 			system("exec rm -r -f PathTrace/*");
 			return TCL_OK;
 		}
+		if (strcmp(argv[1], "monitor-FlowSpeed") == 0) { /////WF add
+			ifMoniterFlowSpeed_=1;
+			schedDelay = 1E-3;
+			qFlowSize = lastFlowSize = 0;
+			mkdir("FlowSpeed",0777);
+			system("exec rm -r -f FlowSpeed/*");
+			return TCL_OK;
+		}
 	}
 	return Connector::command(argc, argv);
 }
@@ -164,7 +173,7 @@ int Queue::command(int argc, const char*const* argv)
 void Queue::recv(Packet* p, Handler*)
 {
 	printDelayTimeline(p);////CG add
-	printFlowPath(p);///CG add
+
 	printPathTrace(p);///WF add
 
 	if(ifTagTimeStamp_==1)
@@ -403,10 +412,19 @@ void Queue::printFlowPath(Packet* pkt)
     {
         return;
     }
+
+	if(ifMoniterFlowSpeed_ && pFlowSpeedTimer == NULL)
+    {
+        pFlowSpeedTimer = new FlowSpeedTimer(this);
+		pFlowSpeedTimer->sched(schedDelay);
+    }
+
+			
     hdr_ip *iph = hdr_ip::access(pkt);
     hdr_cmn* cmnh = hdr_cmn::access(pkt);
 
 	// it means just count the what flow get pass by the node
+    qFlowSize += cmnh->size_;
 	#define DO_NOT_COUNT_FLOW_SIZE
 	#ifdef DO_NOT_COUNT_FLOW_SIZE
 		vector < flowInfo >::iterator it;
@@ -418,7 +436,8 @@ void Queue::printFlowPath(Packet* pkt)
 				&& it->dstPort==iph->dst().port_
 				&& it->hashkey == cmnh->ecmpHashKey)
 			{
-			  return;
+				it->flowSize += cmnh->size_;
+				return;
 			}
 		}
 
@@ -428,6 +447,8 @@ void Queue::printFlowPath(Packet* pkt)
 		tmp_map.dstAddr=iph->dst().addr_;
 		tmp_map.dstPort=iph->dst().port_;
 		tmp_map.hashkey=cmnh->ecmpHashKey;
+		tmp_map.flowSize=cmnh->size_;
+		tmp_map.lastSize=0;
 		FlowTable.push_back (tmp_map);
 	#endif
 
@@ -443,13 +464,13 @@ void Queue::printFlowPath(Packet* pkt)
 		fprintf(stderr,"%s, Can't open file %s!\n",strerror(errno),str1);
 	}
     
-    fprintf(fpFlowPath,"%.9f\t%d.%d-%d.%d %u %d %u\n",
+
+    fprintf(fpFlowPath,"%.9f\t%d.%d-%d.%d %u %d\n",
         Scheduler::instance().clock()
         ,iph->src().addr_,iph->src().port_
 		,iph->dst().addr_,iph->dst().port_
 		,cmnh->ecmpHashKey
-		,cmnh->flowID
-		,cmnh->size_);
+		,cmnh->flowID);
 
     fclose(fpFlowPath);
 }
@@ -483,5 +504,54 @@ void Queue::printPathTrace(Packet* pkt)
 		,cmnh->size_);
 
     fclose(fpPathTrace);
+}
 
+
+void Queue::printFlowSpeed()
+{
+	if(!ifMoniterFlowSpeed_)
+    {
+        return;
+    }
+
+	char str1[128];
+	memset(str1,0,128*sizeof(char));
+	sprintf(str1,"FlowSpeed/Path%d-%d_Speed.tr"
+		,last_hop
+		,next_hop);
+
+	fpFlowSpeed=fopen(str1,"a");
+	if(fpFlowSpeed==NULL)
+	{
+		fprintf(stderr,"%s, Can't open file %s!\n",strerror(errno),str1);
+	}
+    
+    double qSpeed = (double)(qFlowSize - lastFlowSize) / (schedDelay * 1000 * 1000) * 8;
+    fprintf(fpFlowSpeed, "%.lf\t", qSpeed);
+    lastFlowSize = qFlowSize;
+
+
+    vector < flowInfo >::iterator it;
+	for(it = FlowTable.begin (); it != FlowTable.end (); ++it)
+	{
+		
+		double fSpeed = (double)(it->flowSize - it->lastSize) / (schedDelay * 1000 * 1000) * 8;
+		fprintf(fpFlowSpeed, "%d.%d-%d.%d-%u=%.lf\t" 
+			,it->srcAddr,it->srcPort
+			,it->dstAddr,it->dstPort
+			,it->hashkey
+			,fSpeed);
+
+		it->lastSize = it->flowSize;
+	}
+
+    fprintf(fpFlowSpeed, "\n");
+    fclose(fpFlowSpeed);
+	pFlowSpeedTimer->resched(schedDelay);
+}
+
+
+void FlowSpeedTimer::expire(Event *e)
+{
+	a_->printFlowSpeed();
 }

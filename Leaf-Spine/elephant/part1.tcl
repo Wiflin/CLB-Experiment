@@ -55,8 +55,8 @@ for {set i 0} {$i<$topSwitchNumber} {incr i} {
 
 
 set rwndSize 4000
-set queueSpineSwitch 600
-set queueLeafSwitch 600
+set queueSpineSwitch 13
+set queueLeafSwitch 13
 
 set queueManage "DropTail"
 set ecnThresholdPortion 0.3
@@ -126,6 +126,7 @@ for {set i 0} {$i<$accessSwitchNumber} {incr i} {
 			# $queue2 tag-timestamp
 			# $queue2 monitor-QueueLen
 			$queue2 monitor-FlowPath
+			$queue2 monitor-FlowSpeed
 			# $queue2 monitor-Drop
 			# $queue2 monitor-PathTrace
 			
@@ -367,11 +368,14 @@ for {set k 0} {$k<$flowNumber} {incr k} {
 		set tcp($currentInsertingConnID) [new Agent/TCP/FullTcp/Sack]
 		set tcpsink($currentInsertingConnID) [new Agent/TCP/FullTcp/Sack]
 
-		$tcp($currentInsertingConnID) ecmp-hash-key [expr abs(int([$rnd value]*0x10000))]
+		# $tcp($currentInsertingConnID) ecmp-hash-key [expr abs(int([$rnd value]*0x10000))]
+
+		$tcp($currentInsertingConnID) ecmp-hash-key 12345
 
 		# $tcp($currentInsertingConnID) monitor-spare-window
 
 		$tcp($currentInsertingConnID) monitor-Sequence
+		$tcp($currentInsertingConnID) monitor-Speed
 		# $tcpsink($currentInsertingConnID) monitor-Sequence
 
 		$tcp($currentInsertingConnID) no-syn sender

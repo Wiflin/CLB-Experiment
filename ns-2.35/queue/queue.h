@@ -40,6 +40,7 @@
 #include "connector.h"
 #include "packet.h"
 #include "ip.h"
+#include "timer-handler.h"
 #include <vector> ///CG add
 struct flowInfo ///CG add
 {
@@ -48,7 +49,13 @@ struct flowInfo ///CG add
 	int dstAddr;
 	int dstPort;
 	unsigned hashkey;
+	int flowSize;
+	int lastSize;
 };
+
+
+
+
 
 class Packet;
 
@@ -129,6 +136,16 @@ private:
 };
 
 
+
+class FlowSpeedTimer : public TimerHandler {
+public: 
+	FlowSpeedTimer(Queue * a) : TimerHandler() { a_ = a; }
+protected:
+	virtual void expire(Event *e);
+	Queue *a_;
+};
+
+
 class Queue : public Connector {
 public:
 	virtual void enque(Packet*) = 0;
@@ -199,6 +216,15 @@ protected:
 	void printPathTrace(Packet* pkt);
 	FILE * fpPathTrace;
 
+
+	friend class FlowSpeedTimer;
+	int ifMoniterFlowSpeed_;
+	double schedDelay;
+	long long qFlowSize, lastFlowSize;
+	void printFlowSpeed();
+	FlowSpeedTimer * pFlowSpeedTimer;
+	FILE * fpFlowSpeed;
+
 	int ifTagTimeStamp_;//CG add
 
 	int ifHavePrint;///CG add
@@ -207,5 +233,6 @@ protected:
 	int next_hop;
 	int ecn_threshold_;///CG add
 };
+
 
 #endif

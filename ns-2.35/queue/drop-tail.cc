@@ -167,6 +167,9 @@ Packet* DropTail::deque()
 	}
 	//CG add
 	Packet* p=q_->deque();
+
+	if(p)	printFlowPath(p);///CG add
+
 	return p;
 }
 

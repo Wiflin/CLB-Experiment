@@ -69,7 +69,7 @@
 #define EC_Module 0
 
 #define T_REFRESH  	((double)5E-4)
-#define T_VP_EXPIRE	((double)0.5)
+#define T_VP_EXPIRE	((double)5*T_REFRESH)
 #define RATE_ALPHA 	((double)0.10)
 #define FLY_ALPHA	((double)0.10)
 #define VP_SIZE		((int)16)	

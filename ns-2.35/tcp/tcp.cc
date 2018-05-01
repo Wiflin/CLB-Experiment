@@ -71,7 +71,7 @@ public:
 
 TcpAgent::TcpAgent() 
 	: Agent(PT_TCP),
-    ifAllDataSent_(0), IF_PRINT_SEQTIMELINE(0),IF_PRINT_SPARE_WINDOW(0),
+    ifAllDataSent_(0),pTCPSpeedTimer(NULL),IF_PRINT_TCPSPEED(0),IF_PRINT_SEQTIMELINE(0),IF_PRINT_SPARE_WINDOW(0),
 	  t_seqno_(0), dupacks_(0), curseq_(0), highest_ack_(0), 
           cwnd_(0), ssthresh_(0), maxseq_(0), count_(0), 
           rtt_active_(0), rtt_seq_(-1), rtt_ts_(0.0), 
@@ -872,6 +872,14 @@ int TcpAgent::command(int argc, const char*const* argv)
                 mkdir("WndCount/RecoveryNum",0777);
                 return TCL_OK;
             }
+        if (strcmp(argv[1], "monitor-Speed") == 0) { /////CG add
+            IF_PRINT_TCPSPEED=1;
+            sendSize = lastSize = 0;
+            schedDelay = 1E-3;
+            mkdir("TCPSpeed",0777);
+            system("exec rm -r -f TCPSpeed/*");
+            return TCL_OK;
+        }
     }
 	if (argc == 3) {
 		if (strcmp(argv[1], "advance") == 0) {
@@ -2676,6 +2684,18 @@ void TcpAgent::initRetranFile()///CG add
 
 void TcpAgent::send(Packet* p, Handler* h) 
 { 
+    if(IF_PRINT_TCPSPEED) 
+    {
+        if (pTCPSpeedTimer == 0) 
+        {
+            pTCPSpeedTimer = new TCPSpeedTimer(this);
+            pTCPSpeedTimer->sched(schedDelay);
+        }
+
+        sendSize += hdr_cmn::access(p)->size_;
+    }
+
+
     hdr_cmn* cmnh = hdr_cmn::access(p);
     cmnh->ecmpHashKey=ecmpHashKey;
 
@@ -2693,4 +2713,50 @@ void TcpAgent::send(Packet* p, Handler* h)
     //     );
 
     Agent::send(p,h);
+}
+
+
+void TcpAgent::printTcpSpeed()
+{
+    if(!IF_PRINT_TCPSPEED)
+    {
+        return;
+    }
+
+    char str1[128];
+    memset(str1,0,128*sizeof(char));
+    sprintf(str1,"TCPSpeed/Flow%d_Speed.tr",flowID);
+    FILE* fpFlowSpeed=fopen(str1,"a");
+    if(fpFlowSpeed==NULL)
+    {
+        fprintf(stderr,"%s, Can't open file %s!\n",strerror(errno),str1);
+    }
+    
+    double fSpeed = (double)(sendSize - lastSize) / (schedDelay * 1000 * 1000) * 8;
+    fprintf(fpFlowSpeed, "%.lf\t", fSpeed);
+    lastSize = sendSize;
+
+
+    // vector < flowInfo >::iterator it;
+    // for(it = FlowTable.begin (); it != FlowTable.end (); ++it)
+    // {
+        
+    //     double fSpeed = (double)(it->flowSize - it->lastSize) / (schedDelay * 1000 * 1000) * 8;
+    //     fprintf(fpFlowSpeed, "%d.%d-%d.%d-%u=%.lf\t" 
+    //         ,it->srcAddr,it->srcPort
+    //         ,it->dstAddr,it->dstPort
+    //         ,it->hashkey
+    //         ,fSpeed);
+
+    //     it->lastSize = it->flowSize;
+    // }
+
+    fprintf(fpFlowSpeed, "\n");
+    fclose(fpFlowSpeed);
+    pTCPSpeedTimer->resched(schedDelay);
+}
+
+void TCPSpeedTimer::expire(Event *e)
+{
+    a_->printTcpSpeed();
 }

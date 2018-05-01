@@ -6,13 +6,16 @@ clean() {
 	rm -rf DropPacket
 	rm -rf TcpSeq
 	rm -rf PathTrace
+	rm -rf FlowSpeed
 	rm -rf CLB
+	rm -rf TCPSpeed
 	rm -f InputFlow-BindFlowID*
 	rm -f InputFlow-FCT*
 	rm -f tmp
 	rm -f error.tmp
 	rm -f All-Packet-Debug.tr
 }
+
 
 if [ "$1"x == "clean"x ];then
 	clean

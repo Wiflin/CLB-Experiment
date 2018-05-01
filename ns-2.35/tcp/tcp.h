@@ -174,6 +174,14 @@ protected:
 	TcpAgent *a_;
 };
 
+class TCPSpeedTimer : public TimerHandler {
+public: 
+	TCPSpeedTimer(TcpAgent * a) : TimerHandler() { a_ = a; }
+protected:
+	virtual void expire(Event *e);
+	TcpAgent *a_;
+};
+
 /*
  * Variables for HighSpeed TCP.
  */
@@ -229,6 +237,17 @@ public:
 protected:
 	int IF_PRINT_SEQTIMELINE; ///CG add
 	int IF_PRINT_SPARE_WINDOW; ///CG add
+
+//WF add begin.
+	friend class TCPSpeedTimer;
+	int IF_PRINT_TCPSPEED; //WF add
+	TCPSpeedTimer * pTCPSpeedTimer;
+	double schedDelay;
+	long long sendSize;
+	long long lastSize;
+
+	void printTcpSpeed();
+//WF add ends!
 
 	virtual int window();
 	virtual double windowd();
