@@ -44,33 +44,34 @@
  *
  */
 
-
-#include "ip.h"
+#include <iostream>
 #include <math.h>
 #include <time.h>  
 #include <vector>
 #include <map>
 #include <vector>
 #include <queue>
+#include <cstdlib>
+#include <string>
+#include <sstream>
+#include <sys/stat.h> 
 #include "classifier.h"
 #include "node.h"
 #include "queue.h"
-#include <cstdlib>
-#include <string>
-#include <sys/stat.h> 
+#include "ip.h"
 #include "clb-processor.h"
 
 // Virtual Path Module enabled/disabled
 #define VP_Module 1
 // Congestion Aware Module enabled/disabled
-#define CA_Module 0
+#define CA_Module 1
 // Eraser Code Module enabled/disabled
 #define EC_Module 0
 
 #define T_REFRESH  	((double)5E-4)
-#define T_VP_EXPIRE	((double)10)
-#define RATE_ALPHA 	((double)0.25)
-#define FLY_ALPHA	((double)0.75)
+#define T_VP_EXPIRE	((double)0.5)
+#define RATE_ALPHA 	((double)0.10)
+#define FLY_ALPHA	((double)0.10)
 #define VP_SIZE		((int)16)	
 
 
@@ -81,9 +82,9 @@ void CLBProcessorTimer::expire(Event *e)
 
 
 CLBProcessor::CLBProcessor(Node* node, Classifier* classifier, CLB* clb, int src, int dst)
- : n_(node), c_(classifier), clb_(clb), pt_(this), src_(src), dst_(dst)
+ : n_(node), c_(classifier), clb_(clb), pt_(this), src_(src), dst_(dst), flag(0)
 {
-	srand(time(NULL));
+	// srand(time(NULL));
 
 	sequence = 0;
 
@@ -92,12 +93,23 @@ CLBProcessor::CLBProcessor(Node* node, Classifier* classifier, CLB* clb, int src
 	init_ca_response(&global_response);
 
 	pt_.sched(T_REFRESH);
+
+	stringstream dir; 
+	dir << "CLB/" << src_;
+	mkdir(dir.str().c_str(),0777);
+
+	char str1[128];
+	sprintf(str1,"[constructor] global_ca=%p\tglobal_response=%p",&global_ca,&global_response);
+	flow_debug(str1,"Record");
+
 }
 
 
 
 int CLBProcessor::recv(Packet* p, Handler*h)
 {
+
+
 	if ((VP_Module | CA_Module) == 0)
 		return 0;
 
@@ -119,6 +131,7 @@ int CLBProcessor::recv(Packet* p, Handler*h)
 	// @cautious!	it make no sense when both module are enabled!
 	if (CA_Module == 1)
 	{
+		// flow_debug("\n");
 		// work as a sender -> update sender-record according feedback vp_rcnt
 		if (cmnh->clb_row.response_en == 1 && cmnh->clb_row.vp_rid == 0)
 			ca_record_recv(&global_ca, cmnh->clb_row.vp_rcnt);
@@ -139,6 +152,14 @@ int CLBProcessor::recv(Packet* p, Handler*h)
 			
 			else {
 				assert(vp->hashkey == cmnh->clb_row.vp_rid);
+
+				char str1[228];
+				int recv_undefined = cmnh->clb_row.vp_rcnt - vp->ca_row.recv_cnt;
+				sprintf(str1,"[%lf recv]\thashkey=%6u\toddrecv=%u\tcurrecv=%u\trecv*=%d",Scheduler::instance().clock(),
+					vp->hashkey,vp->ca_row.recv_cnt,cmnh->clb_row.vp_rcnt,recv_undefined);
+				flow_debug(str1,"Recv");
+				
+
 				ca_record_recv(&vp->ca_row, cmnh->clb_row.vp_rcnt);
 			}
 		}
@@ -219,12 +240,24 @@ int CLBProcessor::send(Packet* p, Handler*h)
 	cmnh->clb_row.vp_rcnt = clb_recv_cnt;
 	cmnh->clb_row.response_en = 1;	// make no sense
 
+	double fly = vp->ca_row.flying + vp->ca_row.send_undefined - vp->ca_row.recv_undefined;
+	double cost_ = cost(&vp->ca_row);
+	char str1[128];
+	sprintf(str1,"[%lf send]\thashkey=%6u\t flying=%lf\t   rate=%4.2lf\t   cost=%4.2lf\t\t\t\t\tsend*=%u\trecv*=%d",Scheduler::instance().clock(),
+		clb_hashkey,fly,vp->ca_row.rate,cost_,vp->ca_row.send_undefined,vp->ca_row.recv_undefined);
+	flow_debug(str1,"Send");
+
 	return 0;
 }
 
 void CLBProcessor::expire(Event *e)
-{
+{	
+	flow_debug("\n[clb-processor expire]\n","Send");
+	flow_debug("\n[clb-processor expire]\n","Recv");
+	// vpsend_debug();
 	// 1. foreach : update table row
+	update_ca_record(&global_ca);
+
 	double now = Scheduler::instance().clock();
 	map < unsigned, struct vp_record* > :: iterator it = vp_map.begin();
 
@@ -242,16 +275,18 @@ void CLBProcessor::expire(Event *e)
 		++it;
 	}
 
+	vpt_debug();
+
 	// 2. resched()
 	pt_.resched(T_REFRESH);
 }
 
 struct vp_record* CLBProcessor::vp_alloc()
 {
-	unsigned hashkey = rand();
+	unsigned hashkey = rand() % 65535;
 
 	while (vp_map.find(hashkey) != vp_map.end())
-		hashkey = rand();
+		hashkey = rand() % 65535;
 
 	struct vp_record*	vp = new struct vp_record();
 
@@ -262,8 +297,8 @@ struct vp_record* CLBProcessor::vp_alloc()
 
 
 	char str1[128];
-	sprintf(str1,"[clb-processor vp_alloc] hashkey=%d vpp=%p cost=%.16lf",hashkey,vp,cost(&vp->ca_row));
-	flow_debug(str1);
+	sprintf(str1,"[vp_alloc]\t%lf\t%8d\t%p\t%lf",Scheduler::instance().clock(),hashkey,vp,cost(&vp->ca_row));
+	flow_debug(str1,"Record");
 
 
 	return vp;
@@ -273,8 +308,8 @@ struct vp_record* CLBProcessor::vp_alloc()
 void CLBProcessor::vp_free(unsigned hashkey) 
 {
 	char str1[128];
-	sprintf(str1,"[clb-processor vp_free] hashkey=%d",hashkey);
-	flow_debug(str1);
+	sprintf(str1,"[vp_free]\t%lf\t%8d",Scheduler::instance().clock(),hashkey);
+	flow_debug(str1,"Record");
 
 
 	map < unsigned, struct vp_record* > :: iterator it = vp_map.find(hashkey);
@@ -316,9 +351,9 @@ struct vp_record* CLBProcessor::vp_next()
 		}
 	} 
 
-	char str1[128];
-	sprintf(str1,"[clb-processor vp_next] %lf\thashkey=%d vpp=%p",Scheduler::instance().clock(),vp->hashkey,vp);
-	flow_debug(str1);
+	// char str1[128];
+	// sprintf(str1,"[clb-processor vp_next] %lf\thashkey=%d vpp=%p",Scheduler::instance().clock(),vp->hashkey,vp);
+	// flow_debug(str1);
 
 	if (vp != 0)
 		return vp;
@@ -404,9 +439,9 @@ double CLBProcessor::cost(struct ca_record* ca)
 {
 	// @todo how to calculate it
 
-	// if (fabs(ca->rate) < 1E-2)
+	// if (fabs(ca->rate) < 1E-2)	
 		// calculate the average cost
-	unsigned fly = (unsigned)ca->flying + ca->send_undefined - ca->recv_undefined;
+	double fly = ca->flying + ca->send_undefined - ca->recv_undefined;
 	double cost_ = (double)(1 + fly) / ca->rate;
 	return cost_;
 }
@@ -426,7 +461,7 @@ void CLBProcessor::ca_record_send(struct ca_record* ca)
 
 void CLBProcessor::ca_record_recv(struct ca_record* ca, unsigned current_recv)
 {
-	unsigned recv_undefined = current_recv - ca->recv_cnt;
+	int recv_undefined = current_recv - ca->recv_cnt;
 
 	ca->recv_undefined = recv_undefined;
 	ca->fresh_time = Scheduler::instance().clock();
@@ -471,6 +506,12 @@ void CLBProcessor::update_ca_response(struct ca_response* response)
 {
 	response->recv_cnt += 1;
 	response->time = Scheduler::instance().clock();
+
+	// char str1[128];
+	// sprintf(str1,"[clb-processor update_ca_response] %lf\t%p\trecv-cnt=%d",
+	// 	Scheduler::instance().clock(),response,response->recv_cnt);
+	// flow_debug(str1);
+
 }
 
 
@@ -511,22 +552,122 @@ void CLBProcessor::update_ca_response(struct ca_response* response)
 
 
 
-void CLBProcessor::flow_debug(char* str, Packet* p)
+void CLBProcessor::flow_debug(char* str, char* file, Packet* p)
 {
 	// hdr_ip* iph = hdr_ip::access(p);
 	// hdr_cmn* cmnh = hdr_cmn::access(p);
 
 	char str1[128];
 	memset(str1,0,128*sizeof(char));
-	sprintf(str1,"CLB/processor_%d-%d.tr",src_,dst_);
+	sprintf(str1,"CLB/%d/%s-%d.tr", src_, file, dst_);
 	FILE* fpResult=fopen(str1,"a+");
 	if(fpResult==NULL)
     {
-        fprintf(stderr,"Can't open file %s!\n","CLB/route_debug.tr");
+        fprintf(stderr,"Can't open file %s!\n", str1);
     	// return(TCL_ERROR);
     } else {
 
 		fprintf(fpResult, "%s\n", str);		
 		fclose(fpResult);
 	}
+}
+
+
+void CLBProcessor::vpt_debug()
+{
+	// hdr_ip* iph = hdr_ip::access(p);
+	// hdr_cmn* cmnh = hdr_cmn::access(p);
+
+
+	char str1[128];
+	memset(str1,0,128*sizeof(char));
+	sprintf(str1,"CLB/%d/VPT-%d.tr",src_,dst_);
+	FILE* fpResult=fopen(str1,"a+");
+	if(fpResult==NULL)
+    {
+        fprintf(stderr,"Can't open file %s!\n","CLB/route_debug.tr");
+        return;
+    	// return(TCL_ERROR);
+    } 
+
+
+
+
+    map < unsigned, struct vp_record* > :: iterator it = vp_map.begin();
+
+    if ( ! flag )
+    {
+    	for ( ; it != vp_map.end(); ++it)
+    	{
+    		fprintf(fpResult, "%u ", it->second->hashkey );
+    	}
+
+    	it = vp_map.begin();
+		fprintf(fpResult, "\n");
+
+		flag = 1;
+
+    }
+
+
+    for ( ; it != vp_map.end(); ++it)
+    {
+    	// fprintf(fpResult, "%lf\t%u\t%lf\t%lf\n", Scheduler::instance().clock(), 
+    	// 	it->second->hashkey, it->second->ca_row.rate, it->second->ca_row.flying);
+    	fprintf(fpResult, "%lf ",it->second->ca_row.rate);
+    }
+    fprintf(fpResult, "\n");
+	fclose(fpResult);
+
+}
+
+
+
+void CLBProcessor::vpsend_debug()
+{
+	// hdr_ip* iph = hdr_ip::access(p);
+	// hdr_cmn* cmnh = hdr_cmn::access(p);
+
+	
+
+	char str1[128];
+	memset(str1,0,128*sizeof(char));
+	sprintf(str1,"CLB/%d/VPSend-%d.tr",src_,dst_);
+	FILE* fpResult=fopen(str1,"a+");
+	if(fpResult==NULL)
+    {
+        fprintf(stderr,"Can't open file %s!\n",str1);
+        return;
+    	// return(TCL_ERROR);
+    } 
+
+
+
+
+    map < unsigned, struct vp_record* > :: iterator it = vp_map.begin();
+
+    if ( ! flag )
+    {
+    	for ( ; it != vp_map.end(); ++it)
+    	{
+    		fprintf(fpResult, "%u ", it->second->hashkey );
+    	}
+
+    	it = vp_map.begin();
+		fprintf(fpResult, "\n");
+
+		flag = 1;
+
+    }
+
+
+    for ( ; it != vp_map.end(); ++it)
+    {
+    	// fprintf(fpResult, "%lf\t%u\t%lf\t%lf\n", Scheduler::instance().clock(), 
+    	// 	it->second->hashkey, it->second->ca_row.rate, it->second->ca_row.flying);
+    	fprintf(fpResult, "%u ",it->second->ca_row.send_undefined);
+    }
+    fprintf(fpResult, "\n");
+	fclose(fpResult);
+
 }

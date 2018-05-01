@@ -10,8 +10,8 @@ set topSwitchNumber 	4
 set leafUpPortNumber $topSwitchNumber
 set leafDownPortNumber 40
 
-set flowNumber 40
-set perFlowSize "1M"
+set flowNumber 2
+set perFlowSize "10M"
 
 set fTraffic [open InputFlow-$serverNumber-$flowNumber-$perFlowSize.tr r]
 
@@ -35,8 +35,10 @@ $ns set staticRoute_ 1
 for {set i 0} {$i<$serverNumber} {incr i} {
 	set n($i) [$ns node]
 	$n($i) enable-salt
+	[$n($i) entry] enable-clb
 }
-[$n(0) entry] enable-clb
+# [$n(0) entry] enable-clb
+# [$n(40) entry] enable-clb
 
 # 1*access layer + [expr $switchLayer-2]*distribution layer
 for {set i 0} {$i<$accessSwitchNumber} {incr i} {
@@ -63,7 +65,7 @@ set ecnThresholdPortion 0.3
 set sendBufferSize	4000
 set ecnThresholdPortionLeaf 0.3
 
-set linkRate	10G
+set linkRate	250M
 # 0.02 ms
 set linkDelay 	0.02 
 
@@ -107,10 +109,10 @@ for {set i 0} {$i<$accessSwitchNumber} {incr i} {
 		set k [expr ($i*$leafUpPortNumber+$j)%$topSwitchNumber]
 			$ns simplex-link $sLeaf($i) $sSpine($k) $linkRate [expr $linkDelay*1E-3]s $queueManage	
 			$ns queue-limit $sLeaf($i) $sSpine($k) $queueLeafSwitch
-			# $ns ecn-threshold $sLeaf($i) $sSpine($k) [expr int($queueSpineSwitch*$ecnThresholdPortion)]
+			$ns ecn-threshold $sLeaf($i) $sSpine($k) [expr int($queueSpineSwitch*$ecnThresholdPortion)]
 			$ns simplex-link $sSpine($k) $sLeaf($i) $linkRate [expr $linkDelay*1E-3]s $queueManage
 			$ns queue-limit $sSpine($k) $sLeaf($i) $queueSpineSwitch
-			# $ns ecn-threshold $sSpine($k) $sLeaf($i) [expr int($queueSpineSwitch*$ecnThresholdPortion)]
+			$ns ecn-threshold $sSpine($k) $sLeaf($i) [expr int($queueSpineSwitch*$ecnThresholdPortion)]
 
 			puts "leaf($i)([$sLeaf($i) set address_]) <-> spine($k)([$sSpine($k) set address_])"
 
@@ -428,6 +430,6 @@ proc finish {} {
 	exit
 }
 
-set timeLength [expr $latestFlowStartTime+10]
+set timeLength [expr $latestFlowStartTime+1]
 $ns at $timeLength "finish"
 $ns run

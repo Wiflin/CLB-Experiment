@@ -85,6 +85,7 @@ private:
 	void recv_proc(Packet* p, Handler*h);
 	void send_proc(Packet* p, Handler*h);
 	void flow_debug(Packet* p, Handler*h, char* str="\0");
+	void debug(char* str, char* file = "CLB-Instance");
 	CLBProcessor* get_node_processor(int);
 
 	Node* 		n_;

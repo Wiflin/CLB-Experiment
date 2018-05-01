@@ -1,3 +1,5 @@
 *.tr
 *tmp
 *.o
+ns-2.35/ns
+ns-2.35/nstk

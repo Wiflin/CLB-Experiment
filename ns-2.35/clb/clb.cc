@@ -67,7 +67,11 @@
 CLB::CLB(Node* n, Classifier* c) : n_(n), c_(c)
 {
 	mkdir("CLB",0777);
-	system("exec rm -r -f CLB/*");
+	// system("exec rm -r -f CLB/*");
+
+	char str1[128];
+	sprintf(str1,"[Constructor] %p",this);
+	debug(str1);
 }
 
 void CLB::recv(Packet* p, Handler*h)
@@ -92,7 +96,7 @@ void CLB::recv_proc(Packet* p, Handler*h)
 
 	np->recv(p, h);
 
-	flow_debug(p, h, "[recv packet]");
+	// flow_debug(p, h, "[recv packet]");
 }
 
 void CLB::send_proc(Packet* p, Handler*h)
@@ -101,7 +105,7 @@ void CLB::send_proc(Packet* p, Handler*h)
 
 	np->send(p, h);
 
-	flow_debug(p, h, "[send packet]");	
+	// flow_debug(p, h, "[send packet]");	
 }
 
 
@@ -146,6 +150,27 @@ void CLB::flow_debug(Packet* p, Handler*h, char* str)
 		fprintf(fpResult, "%lf-Node-%d-(%d->%d):flow=%d\tpacket=%d\tsize=%d\trecord=%d\tresponse=%d\tntsize=%d\t%s\n",
 			Scheduler::instance().clock(),n_->nodeid(),iph->src_,iph->dst_,cmnh->flowID,p->uid(),cmnh->size_,
 			cmnh->clb_row.record_en,cmnh->clb_row.response_en,node_table.size(),str);		
+		fclose(fpResult);
+	}
+}
+
+
+void CLB::debug(char* str, char* file)
+{
+	// hdr_ip* iph = hdr_ip::access(p);
+	// hdr_cmn* cmnh = hdr_cmn::access(p);
+
+	char str1[128];
+	memset(str1,0,128*sizeof(char));
+	sprintf(str1,"CLB/%s.tr", file);
+	FILE* fpResult=fopen(str1,"a+");
+	if(fpResult==NULL)
+    {
+        fprintf(stderr,"Can't open file %s!\n", str1);
+    	// return(TCL_ERROR);
+    } else {
+
+		fprintf(fpResult, "%s\n", str);		
 		fclose(fpResult);
 	}
 }

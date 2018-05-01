@@ -68,7 +68,7 @@ struct ca_record
 	unsigned send_cnt;
 	unsigned recv_cnt;
 	unsigned send_undefined;
-	unsigned recv_undefined;
+	int recv_undefined;
 	double	 flying;
 	double 	 rate;
 	double 	 fresh_time;
@@ -146,6 +146,8 @@ protected:
 	int 		src_;
 	int 		dst_;
 
+	int flag;	// for debug
+
 	// just for fun?
 	unsigned			sequence;
 	struct ca_record	global_ca;
@@ -205,8 +207,9 @@ protected:
 
 
 
-	void flow_debug(char* str, Packet* p = NULL);
-
+	void flow_debug(char* str, char* file = "Processor", Packet* p = NULL);
+	void vpt_debug();
+	void vpsend_debug();
 };
 
 
