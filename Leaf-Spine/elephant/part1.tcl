@@ -24,11 +24,11 @@ Agent/TCP/FullTcp/Sack set sack_rtx_cthresh_ 1000;
 Agent/TCP/FullTcp set tcprexmtthresh_ 1000
 Agent/TCP set IF_PRINT_SEQTIMELINE 1
 # Node set loadBalancePerPacket_ 1
+# Node set loadBalanceFlowlet_ 1
 
 
 Node set multiPath_ 1
 $ns set staticRoute_ 1
-
 
 
 # server nodes
@@ -55,8 +55,8 @@ for {set i 0} {$i<$topSwitchNumber} {incr i} {
 
 
 set rwndSize 4000
-set queueSpineSwitch 13
-set queueLeafSwitch 13
+set queueSpineSwitch 80
+set queueLeafSwitch 80
 
 set queueManage "DropTail"
 set ecnThresholdPortion 0.3

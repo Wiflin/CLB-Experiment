@@ -47,6 +47,7 @@
 #include <iostream>
 #include <math.h>
 #include <time.h>  
+#include <math.h>
 #include <vector>
 #include <map>
 #include <vector>
@@ -69,7 +70,7 @@
 #define EC_Module 0
 
 #define T_REFRESH  	((double)5E-4)
-#define T_VP_EXPIRE	((double)5*T_REFRESH)
+#define T_VP_EXPIRE	((double)0.5)
 #define RATE_ALPHA 	((double)0.10)
 #define FLY_ALPHA	((double)0.10)
 #define VP_SIZE		((int)16)	
@@ -461,9 +462,9 @@ void CLBProcessor::ca_record_send(struct ca_record* ca)
 
 void CLBProcessor::ca_record_recv(struct ca_record* ca, unsigned current_recv)
 {
-	int recv_undefined = current_recv - ca->recv_cnt;
+	int recv_undefined = current_recv - ca->recv_cnt + 1;
 
-	ca->recv_undefined = recv_undefined;
+	ca->recv_undefined = recv_undefined > 1 ? recv_undefined : 1;
 	ca->fresh_time = Scheduler::instance().clock();
 }
 
@@ -477,7 +478,8 @@ void CLBProcessor::update_ca_record(struct ca_record* ca_row)
 
 	// 1. calculate new rate
 	double old_rate = ca_row->rate;
-	double calculate_rate = (double) ca_row->recv_undefined / delta_time;
+	// double calculate_rate = (double) ca_row->recv_undefined / delta_time;
+	double calculate_rate = (double) ca_row->recv_undefined;
 	double new_rate = (1 - RATE_ALPHA) * old_rate + RATE_ALPHA * calculate_rate;
 	ca_row->rate = new_rate;
 
@@ -493,7 +495,7 @@ void CLBProcessor::update_ca_record(struct ca_record* ca_row)
 
 	// 4. reset send-undefine & recv-undefine
 	ca_row->send_undefined = 0;
-	ca_row->recv_undefined = 0;
+	ca_row->recv_undefined = 1;
 
 	// 6. update timer
 	ca_row->update_time = Scheduler::instance().clock();

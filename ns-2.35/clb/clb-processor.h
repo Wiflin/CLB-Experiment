@@ -186,7 +186,7 @@ protected:
 		ca_row->send_cnt = 0;
 		ca_row->recv_cnt = 0;
 		ca_row->send_undefined = 0;
-		ca_row->recv_undefined = 0;
+		ca_row->recv_undefined = 1;
 
 		// maybe change to current average of rate
 		ca_row->rate = init_rate();
