@@ -279,49 +279,57 @@ int MultiPathForwarder::balance_flowlet(Packet* p)
 
 int MultiPathForwarder::balance_ecmp(Packet* p)
 {
+
+	
+
+
 	hdr_ip* iph = hdr_ip::access(p);
 	hdr_cmn* cmnh = hdr_cmn::access(p);
 	int key;
-	unsigned char F_Tuple[24];
-	memset(F_Tuple,0,24*sizeof(unsigned char));
-	memcpy(F_Tuple,&(iph->src().addr_),sizeof(int32_t));
-	memcpy(F_Tuple+sizeof(int32_t),&(iph->dst().addr_),sizeof(int32_t));
-	memcpy(F_Tuple+2*sizeof(int32_t),&(iph->src().port_),sizeof(int32_t));
-	memcpy(F_Tuple+3*sizeof(int32_t),&(iph->dst().port_),sizeof(int32_t));
-	memcpy(F_Tuple+4*sizeof(int32_t),&(randSalt_),sizeof(int32_t));
-	memcpy(F_Tuple+5*sizeof(int32_t),&(cmnh->ecmpHashKey),sizeof(int32_t));
+	// unsigned char F_Tuple[24];
+	// memset(F_Tuple,0,24*sizeof(unsigned char));
+	// memcpy(F_Tuple,&(iph->src().addr_),sizeof(int32_t));
+	// memcpy(F_Tuple+sizeof(int32_t),&(iph->dst().addr_),sizeof(int32_t));
+	// memcpy(F_Tuple+2*sizeof(int32_t),&(iph->src().port_),sizeof(int32_t));
+	// memcpy(F_Tuple+3*sizeof(int32_t),&(iph->dst().port_),sizeof(int32_t));
+	// memcpy(F_Tuple+4*sizeof(int32_t),&(randSalt_),sizeof(int32_t));
+	// memcpy(F_Tuple+5*sizeof(int32_t),&(cmnh->ecmpHashKey),sizeof(int32_t));
 
-	// unsigned char F_Tuple[8];
-	// memset(F_Tuple,0,8*sizeof(unsigned char));
-	// memcpy(F_Tuple,&(randSalt_),sizeof(randSalt_));
-	// memcpy(F_Tuple+sizeof(int32_t),&(cmnh->ecmpHashKey),sizeof(int32_t));
+	// // unsigned char F_Tuple[8];
+	// // memset(F_Tuple,0,8*sizeof(unsigned char));
+	// // memcpy(F_Tuple,&(randSalt_),sizeof(randSalt_));
+	// // memcpy(F_Tuple+sizeof(int32_t),&(cmnh->ecmpHashKey),sizeof(int32_t));
 
-	// unsigned char F_Tuple[8];
-	// memset(F_Tuple,0,8*sizeof(unsigned char));
-	// memcpy(F_Tuple,&(cmnh->ecmpHashKey),sizeof(int32_t));
-	// memcpy(F_Tuple+sizeof(int32_t),&(randSalt_),sizeof(int32_t));
+	// // unsigned char F_Tuple[8];
+	// // memset(F_Tuple,0,8*sizeof(unsigned char));
+	// // memcpy(F_Tuple,&(cmnh->ecmpHashKey),sizeof(int32_t));
+	// // memcpy(F_Tuple+sizeof(int32_t),&(randSalt_),sizeof(int32_t));
 
-	uint16_t regionStart=randSalt_%(0x10000);
+	// uint16_t regionStart=randSalt_%(0x10000);
 
-	uint16_t crc=crc16.gen_crc16((uint8_t *)F_Tuple,24);
+	// uint16_t crc=crc16.gen_crc16((uint8_t *)F_Tuple,24);
 
-	uint16_t regionOffSet=(crc-regionStart+(0x10000))%0x10000;
+	// uint16_t regionOffSet=(crc-regionStart+(0x10000))%0x10000;
 
-	key=(int) regionOffSet/((0x10000)/(maxslot_+1));
+	// key=(int) regionOffSet/((0x10000)/(maxslot_+1));
 
 
-	////Hack for debug mode
-	if(cmnh->ecmpHashKey==-1)
-	{
-		key=0;
-	}
-	else if(cmnh->ecmpHashKey==-2)
-	{
-		key=1;
-	}
+	// ////Hack for debug mode
+	// if(cmnh->ecmpHashKey==-1)
+	// {
+	// 	key=0;
+	// }
+	// else if(cmnh->ecmpHashKey==-2)
+	// {
+	// 	key=1;
+	// }
 
-	key=(int) cmnh->ecmpHashKey/((0x10000)/(maxslot_+1));
+
+	//key=(int) cmnh->ecmpHashKey/((0x10000)/(maxslot_+1));
 	
+	key=(unsigned) cmnh->ecmpHashKey%(maxslot_+1);
+
+	// fprintf(stderr, "im in! %u %d\n",cmnh->ecmpHashKey,key);
 
 	// if(maxslot_>=1)
 	// {

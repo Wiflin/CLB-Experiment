@@ -159,7 +159,7 @@ int Queue::command(int argc, const char*const* argv)
 		}
 		if (strcmp(argv[1], "monitor-FlowSpeed") == 0) { /////WF add
 			ifMoniterFlowSpeed_=1;
-			schedDelay = 1E-3;
+			schedDelay = 1E-4;
 			qFlowSize = lastFlowSize = 0;
 			mkdir("FlowSpeed",0777);
 			system("exec rm -r -f FlowSpeed/*");

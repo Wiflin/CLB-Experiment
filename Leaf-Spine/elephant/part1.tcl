@@ -10,7 +10,7 @@ set topSwitchNumber 	4
 set leafUpPortNumber $topSwitchNumber
 set leafDownPortNumber 40
 
-set flowNumber 2
+set flowNumber 1
 set perFlowSize "10M"
 
 set fTraffic [open InputFlow-$serverNumber-$flowNumber-$perFlowSize.tr r]
@@ -20,8 +20,8 @@ set fInputTrafficBindFlowID [open InputFlow-BindFlowID-$serverNumber-$flowNumber
 set fFCT "InputFlow-FCT-$serverNumber-$flowNumber.tr"
 
 set intialCwnd 100
-Agent/TCP/FullTcp/Sack set sack_rtx_cthresh_ 1000;
-Agent/TCP/FullTcp set tcprexmtthresh_ 1000
+Agent/TCP/FullTcp/Sack set sack_rtx_cthresh_ 5000;
+Agent/TCP/FullTcp set tcprexmtthresh_ 5000
 Agent/TCP set IF_PRINT_SEQTIMELINE 1
 # Node set loadBalancePerPacket_ 1
 # Node set loadBalanceFlowlet_ 1
@@ -306,9 +306,9 @@ Agent/TCP set maxRto_	3
 
 Agent/TCP set max_ssthresh_ 20000
 
-# Agent/TCPSink set ecn_syn_ true
-# Agent/TCP set ecn_ 1
-# Agent/TCP set old_ecn_ 1
+Agent/TCPSink set ecn_syn_ true
+Agent/TCP set ecn_ 1
+Agent/TCP set old_ecn_ 1
 
 set STARTTIMEOFFSET 2000
 set inputFlowStartTime [clock seconds]
@@ -376,7 +376,7 @@ for {set k 0} {$k<$flowNumber} {incr k} {
 
 		$tcp($currentInsertingConnID) monitor-Sequence
 		$tcp($currentInsertingConnID) monitor-Speed
-		# $tcpsink($currentInsertingConnID) monitor-Sequence
+		$tcpsink($currentInsertingConnID) monitor-Sequence
 
 		$tcp($currentInsertingConnID) no-syn sender
 		$tcpsink($currentInsertingConnID) no-syn receiver
@@ -434,6 +434,29 @@ proc finish {} {
 	exit
 }
 
+
+set limitStartTime [expr $latestFlowStartTime + 0.035]
+set limitEndTime [expr $latestFlowStartTime + 0.05]
+puts "$limitStartTime,$limitEndTime"
+
+
+# $ns at $limitStartTime "$ns bandwidth $sLeaf(0) $sSpine(0) 100M simplex"
+# $ns at $limitEndTime "$ns bandwidth $sLeaf(0) $sSpine(0) 250M simplex"
+
+# set limitLink1 [$ns link $sLeaf(0) $sSpine(1)]
+# $ns at $limitStartTime "$limitLink1 set bandwidth_ 100M"
+# $ns at $limitEndTime "$limitLink1 set bandwidth_ 250M"
+# set limitLink2 [$ns link $sLeaf(0) $sSpine(2)]
+# $ns at $limitStartTime "$limitLink2 set bandwidth_ 100M"
+# $ns at $limitEndTime "$limitLink2 set bandwidth_ 250M"
+# set limitLink3 [$ns link $sLeaf(0) $sSpine(3)]
+# $ns at $limitStartTime "$limitLink3 set bandwidth_ 100M"
+# $ns at $limitEndTime "$limitLink3 set bandwidth_ 250M"
+
+
+
 set timeLength [expr $latestFlowStartTime+1]
+
+
 $ns at $timeLength "finish"
 $ns run

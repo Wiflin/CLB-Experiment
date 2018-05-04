@@ -71,9 +71,9 @@
 
 #define T_REFRESH  	((double)5E-4)
 #define T_VP_EXPIRE	((double)0.5)
-#define RATE_ALPHA 	((double)0.10)
-#define FLY_ALPHA	((double)0.10)
-#define VP_SIZE		((int)16)	
+#define RATE_ALPHA 	((double)0.30)
+#define FLY_ALPHA	((double)0.30)
+#define VP_SIZE		((int)5)	
 
 
 void CLBProcessorTimer::expire(Event *e)
@@ -83,7 +83,7 @@ void CLBProcessorTimer::expire(Event *e)
 
 
 CLBProcessor::CLBProcessor(Node* node, Classifier* classifier, CLB* clb, int src, int dst)
- : n_(node), c_(classifier), clb_(clb), pt_(this), src_(src), dst_(dst), flag(0)
+ : n_(node), c_(classifier), clb_(clb), pt_(this), src_(src), dst_(dst), flag(0), cost_flag(0), hashkey_counter(0)
 {
 	// srand(time(NULL));
 
@@ -134,7 +134,7 @@ int CLBProcessor::recv(Packet* p, Handler*h)
 	{
 		// flow_debug("\n");
 		// work as a sender -> update sender-record according feedback vp_rcnt
-		if (cmnh->clb_row.response_en == 1 && cmnh->clb_row.vp_rid == 0)
+		if (cmnh->clb_row.response_en == 1)
 			ca_record_recv(&global_ca, cmnh->clb_row.vp_rcnt);
 		// work as a receiver -> update (hashkey,recv-cnt) tuple according what?
 		update_ca_response(&global_response);
@@ -144,7 +144,8 @@ int CLBProcessor::recv(Packet* p, Handler*h)
 	if ((VP_Module & CA_Module) == 1)
 	{
 		// work as a sender -> update sender-record according feedback vp_rcnt
-		if (cmnh->clb_row.response_en == 1 && cmnh->clb_row.vp_rid != 0)
+		// if (cmnh->clb_row.response_en == 1 && cmnh->clb_row.vp_rid != 0)
+		if (cmnh->clb_row.response_en == 1)
 		{
 			struct vp_record* vp = vp_get(cmnh->clb_row.vp_rid);
 
@@ -167,7 +168,8 @@ int CLBProcessor::recv(Packet* p, Handler*h)
 
 
 		// work as a receiver -> update (hashkey,recv-cnt) tuple according what?
-		assert(cmnh->clb_row.vp_id != 0);
+		// assert(cmnh->clb_row.vp_id != 0);
+		// fprintf(stderr, "vpid = %d\n", cmnh->clb_row.vp_id);
 		struct ca_response* response = ca_get(cmnh->clb_row.vp_id);
 
 		if (response == 0)
@@ -187,6 +189,15 @@ int CLBProcessor::recv(Packet* p, Handler*h)
 int CLBProcessor::send(Packet* p, Handler*h)
 {
 	// flow_debug(p);
+
+	vpcost_debug();
+	vpSendCnt_debug();
+	vpRecvCnt_debug();
+	vpSendNew_debug();
+	vpRecvNew_debug();
+	vpFlying_debug();
+	vpRate_debug();
+
 	if ((VP_Module | CA_Module) == 0)
 		return 0;
 
@@ -255,6 +266,8 @@ void CLBProcessor::expire(Event *e)
 {	
 	flow_debug("\n[clb-processor expire]\n","Send");
 	flow_debug("\n[clb-processor expire]\n","Recv");
+
+	// vpcost_debug(1);
 	// vpsend_debug();
 	// 1. foreach : update table row
 	update_ca_record(&global_ca);
@@ -284,10 +297,12 @@ void CLBProcessor::expire(Event *e)
 
 struct vp_record* CLBProcessor::vp_alloc()
 {
-	unsigned hashkey = rand() % 65535;
+	// unsigned hashkey = rand() % 65535;
 
-	while (vp_map.find(hashkey) != vp_map.end())
-		hashkey = rand() % 65535;
+	// while (vp_map.find(hashkey) != vp_map.end())
+	// 	hashkey = rand() % 65535;
+
+	unsigned hashkey = hashkey_counter ++;
 
 	struct vp_record*	vp = new struct vp_record();
 
@@ -442,8 +457,9 @@ double CLBProcessor::cost(struct ca_record* ca)
 
 	// if (fabs(ca->rate) < 1E-2)	
 		// calculate the average cost
-	double fly = ca->flying + ca->send_undefined - ca->recv_undefined;
-	double cost_ = (double)(1 + fly) / ca->rate;
+	// double fly = ca->flying + ca->send_undefined - ca->recv_undefined;
+	double fly = ca->flying + ca->send_undefined;
+	double cost_ = (double)(fly) / ca->rate;
 	return cost_;
 }
 
@@ -462,9 +478,9 @@ void CLBProcessor::ca_record_send(struct ca_record* ca)
 
 void CLBProcessor::ca_record_recv(struct ca_record* ca, unsigned current_recv)
 {
-	int recv_undefined = current_recv - ca->recv_cnt + 1;
+	int recv_undefined = current_recv - ca->recv_cnt;
 
-	ca->recv_undefined = recv_undefined > 1 ? recv_undefined : 1;
+	ca->recv_undefined = recv_undefined;
 	ca->fresh_time = Scheduler::instance().clock();
 }
 
@@ -478,8 +494,8 @@ void CLBProcessor::update_ca_record(struct ca_record* ca_row)
 
 	// 1. calculate new rate
 	double old_rate = ca_row->rate;
-	// double calculate_rate = (double) ca_row->recv_undefined / delta_time;
-	double calculate_rate = (double) ca_row->recv_undefined;
+	double calculate_rate = (double) ca_row->recv_undefined / delta_time;
+	// double calculate_rate = (double) ca_row->recv_undefined;
 	double new_rate = (1 - RATE_ALPHA) * old_rate + RATE_ALPHA * calculate_rate;
 	ca_row->rate = new_rate;
 
@@ -495,7 +511,7 @@ void CLBProcessor::update_ca_record(struct ca_record* ca_row)
 
 	// 4. reset send-undefine & recv-undefine
 	ca_row->send_undefined = 0;
-	ca_row->recv_undefined = 1;
+	ca_row->recv_undefined = 0;
 
 	// 6. update timer
 	ca_row->update_time = Scheduler::instance().clock();
@@ -672,4 +688,203 @@ void CLBProcessor::vpsend_debug()
     fprintf(fpResult, "\n");
 	fclose(fpResult);
 
+}
+
+
+void CLBProcessor::vpcost_debug(int expire)
+{
+	// hdr_ip* iph = hdr_ip::access(p);
+	// hdr_cmn* cmnh = hdr_cmn::access(p);
+
+	
+
+	char str1[128];
+	memset(str1,0,128*sizeof(char));
+	sprintf(str1,"CLB/%d/VPCost-%d.tr",src_,dst_);
+	FILE* fpResult=fopen(str1,"a+");
+	if(fpResult==NULL)
+    {
+        fprintf(stderr,"Can't open file %s!\n",str1);
+        return;
+    	// return(TCL_ERROR);
+    } 
+
+
+
+
+    map < unsigned, struct vp_record* > :: iterator it = vp_map.begin();
+
+    if ( ! cost_flag )
+    {
+    	for ( ; it != vp_map.end(); ++it)
+    	{
+    		fprintf(fpResult, "%u ", it->second->hashkey );
+    	}
+
+    	it = vp_map.begin();
+		fprintf(fpResult, "\n");
+
+		cost_flag = 1;
+
+    }
+
+    fprintf(fpResult, "%lf ",Scheduler::instance().clock());
+
+    // if (expire) {
+    // 	fprintf(fpResult, "expire\n");
+    // }
+
+    for ( ; it != vp_map.end(); ++it)
+    {
+    	// fprintf(fpResult, "%lf\t%u\t%lf\t%lf\n", Scheduler::instance().clock(), 
+    	// 	it->second->hashkey, it->second->ca_row.rate, it->second->ca_row.flying);
+    	fprintf(fpResult, "%.11lf ",cost(&it->second->ca_row));
+    }
+    fprintf(fpResult, "\n");
+	fclose(fpResult);
+
+}
+
+
+
+void CLBProcessor::vpSendCnt_debug()
+{
+	char str1[128];
+	memset(str1,0,128*sizeof(char));
+	sprintf(str1,"CLB/%d/VPSendCnt-%d.tr",src_,dst_);
+	FILE* fpResult=fopen(str1,"a+");
+	if(fpResult==NULL)
+    {
+        fprintf(stderr,"Can't open file %s!\n",str1);
+        return;
+    	// return(TCL_ERROR);
+    } 
+	map < unsigned, struct vp_record* > :: iterator it = vp_map.begin();
+    fprintf(fpResult, "%lf ",Scheduler::instance().clock());
+
+    for ( ; it != vp_map.end(); ++it)
+    {
+    	fprintf(fpResult, "%u ",it->second->ca_row.send_cnt);
+    }
+    fprintf(fpResult, "\n");
+	fclose(fpResult);
+}
+
+
+void CLBProcessor::vpRecvCnt_debug()
+{
+	char str1[128];
+	memset(str1,0,128*sizeof(char));
+	sprintf(str1,"CLB/%d/VPRecvCnt-%d.tr",src_,dst_);
+	FILE* fpResult=fopen(str1,"a+");
+	if(fpResult==NULL)
+    {
+        fprintf(stderr,"Can't open file %s!\n",str1);
+        return;
+    	// return(TCL_ERROR);
+    } 
+	map < unsigned, struct vp_record* > :: iterator it = vp_map.begin();
+    fprintf(fpResult, "%lf ",Scheduler::instance().clock());
+
+    for ( ; it != vp_map.end(); ++it)
+    {
+    	fprintf(fpResult, "%u ",it->second->ca_row.recv_cnt);
+    }
+    fprintf(fpResult, "\n");
+	fclose(fpResult);
+}
+
+void CLBProcessor::vpSendNew_debug()
+{
+	char str1[128];
+	memset(str1,0,128*sizeof(char));
+	sprintf(str1,"CLB/%d/VPSend*-%d.tr",src_,dst_);
+	FILE* fpResult=fopen(str1,"a+");
+	if(fpResult==NULL)
+    {
+        fprintf(stderr,"Can't open file %s!\n",str1);
+        return;
+    	// return(TCL_ERROR);
+    } 
+	map < unsigned, struct vp_record* > :: iterator it = vp_map.begin();
+    fprintf(fpResult, "%lf ",Scheduler::instance().clock());
+
+    for ( ; it != vp_map.end(); ++it)
+    {
+    	fprintf(fpResult, "%u ",it->second->ca_row.send_undefined);
+    }
+    fprintf(fpResult, "\n");
+	fclose(fpResult);
+}
+
+
+void CLBProcessor::vpRecvNew_debug()
+{
+	char str1[128];
+	memset(str1,0,128*sizeof(char));
+	sprintf(str1,"CLB/%d/VPRecv*-%d.tr",src_,dst_);
+	FILE* fpResult=fopen(str1,"a+");
+	if(fpResult==NULL)
+    {
+        fprintf(stderr,"Can't open file %s!\n",str1);
+        return;
+    	// return(TCL_ERROR);
+    } 
+	map < unsigned, struct vp_record* > :: iterator it = vp_map.begin();
+    fprintf(fpResult, "%lf ",Scheduler::instance().clock());
+
+    for ( ; it != vp_map.end(); ++it)
+    {
+    	fprintf(fpResult, "%d ",it->second->ca_row.recv_undefined);
+    }
+    fprintf(fpResult, "\n");
+	fclose(fpResult);
+}
+
+
+void CLBProcessor::vpFlying_debug()
+{
+	char str1[128];
+	memset(str1,0,128*sizeof(char));
+	sprintf(str1,"CLB/%d/VPFlying-%d.tr",src_,dst_);
+	FILE* fpResult=fopen(str1,"a+");
+	if(fpResult==NULL)
+    {
+        fprintf(stderr,"Can't open file %s!\n",str1);
+        return;
+    	// return(TCL_ERROR);
+    } 
+	map < unsigned, struct vp_record* > :: iterator it = vp_map.begin();
+    fprintf(fpResult, "%lf ",Scheduler::instance().clock());
+
+    for ( ; it != vp_map.end(); ++it)
+    {
+    	fprintf(fpResult, "%.11lf ",it->second->ca_row.flying);
+    }
+    fprintf(fpResult, "\n");
+	fclose(fpResult);
+}
+
+
+void CLBProcessor::vpRate_debug()
+{
+	char str1[128];
+	memset(str1,0,128*sizeof(char));
+	sprintf(str1,"CLB/%d/VPRate-%d.tr",src_,dst_);
+	FILE* fpResult=fopen(str1,"a+");
+	if(fpResult==NULL)
+    {
+        fprintf(stderr,"Can't open file %s!\n",str1);
+        return;
+    	// return(TCL_ERROR);
+    } 
+	map < unsigned, struct vp_record* > :: iterator it = vp_map.begin();
+    fprintf(fpResult, "%lf ",Scheduler::instance().clock());
+
+    for ( ; it != vp_map.end(); ++it)
+    {
+    	fprintf(fpResult, "%.11lf ",it->second->ca_row.rate);
+    }
+    fprintf(fpResult, "\n");
+	fclose(fpResult);
 }

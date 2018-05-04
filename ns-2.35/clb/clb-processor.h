@@ -147,6 +147,8 @@ protected:
 	int 		dst_;
 
 	int flag;	// for debug
+	int cost_flag;	// for debug
+	unsigned hashkey_counter;
 
 	// just for fun?
 	unsigned			sequence;
@@ -161,20 +163,22 @@ protected:
 
 
 	inline double init_rate() {
-		double irc = 1;
-		unsigned vpcnt = 0;
-		map < unsigned, struct vp_record* > :: iterator it = vp_map.begin();
+		// double irc = 1;
+		// unsigned vpcnt = 0;
+		// map < unsigned, struct vp_record* > :: iterator it = vp_map.begin();
 		
-		for ( ; it != vp_map.end(); ++it)
-		{
-			if (it->second->ca_row.valid == 0)
-				continue;
+		// for ( ; it != vp_map.end(); ++it)
+		// {
+		// 	if (it->second->ca_row.valid == 0)
+		// 		continue;
 
-			vpcnt += 1;
-			irc += it->second->ca_row.rate;
+		// 	vpcnt += 1;
+		// 	irc += it->second->ca_row.rate;
 
-		}
-		return (vpcnt ? (irc / vpcnt) : irc);
+		// }
+		// return (vpcnt ? (irc / vpcnt) : irc);
+
+		return 1.0;
 	}
 
 	inline void init_vp_record(struct vp_record* vp) {
@@ -186,7 +190,7 @@ protected:
 		ca_row->send_cnt = 0;
 		ca_row->recv_cnt = 0;
 		ca_row->send_undefined = 0;
-		ca_row->recv_undefined = 1;
+		ca_row->recv_undefined = 0;
 
 		// maybe change to current average of rate
 		ca_row->rate = init_rate();
@@ -210,6 +214,13 @@ protected:
 	void flow_debug(char* str, char* file = "Processor", Packet* p = NULL);
 	void vpt_debug();
 	void vpsend_debug();
+	void vpcost_debug(int expire=0);
+	void vpSendCnt_debug();
+	void vpRecvCnt_debug();
+	void vpSendNew_debug();
+	void vpRecvNew_debug();
+	void vpFlying_debug();
+	void vpRate_debug();
 };
 
 
