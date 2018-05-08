@@ -425,7 +425,7 @@ void Queue::printFlowPath(Packet* pkt)
 
 	// it means just count the what flow get pass by the node
     qFlowSize += cmnh->size_;
-	#define DO_NOT_COUNT_FLOW_SIZE
+	// #define DO_NOT_COUNT_FLOW_SIZE
 	#ifdef DO_NOT_COUNT_FLOW_SIZE
 		vector < flowInfo >::iterator it;
 		for(it = FlowTable.begin (); it != FlowTable.end (); ++it)
@@ -465,12 +465,13 @@ void Queue::printFlowPath(Packet* pkt)
 	}
     
 
-    fprintf(fpFlowPath,"%.9f\t%d.%d-%d.%d %u %d\n",
+    fprintf(fpFlowPath,"%.9f\t%d.%d-%d.%d %u %d %u\n",
         Scheduler::instance().clock()
         ,iph->src().addr_,iph->src().port_
 		,iph->dst().addr_,iph->dst().port_
 		,cmnh->ecmpHashKey
-		,cmnh->flowID);
+		,cmnh->flowID
+		,cmnh->size_);
 
     fclose(fpFlowPath);
 }

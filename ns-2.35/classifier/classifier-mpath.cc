@@ -78,6 +78,7 @@ MultiPathForwarder::MultiPathForwarder() : Classifier(), ns_(0) {
 	bind("loadBalanceFlowlet_", &loadBalanceFlowlet_); //WF add
 	// loadBalanceFlowlet_ = 1;
 	srand((unsigned)time(NULL));
+	r = 0;
 	
 } 
 
@@ -179,10 +180,16 @@ int MultiPathForwarder::classify(Packet* p) {
 int MultiPathForwarder::mpath_route(Packet* p)
 {
 	// fprintf(stderr,"[mpath-classifier] %lf-Node-%d conga=%d\n",Scheduler::instance().clock(),n_->nodeid(),conga_enabled());
-	if(conga_enabled() == 1)
-		return conga_()->route(p, this);
-	else
-		return rand();
+
+
+	r = (++r) % (maxslot_+1);
+	return r;
+
+
+	// if(conga_enabled() == 1)
+	// 	return conga_()->route(p, this);
+	// else
+	// 	return rand();
 }
 
 //CG add

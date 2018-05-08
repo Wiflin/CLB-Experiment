@@ -2566,6 +2566,11 @@ void TcpAgent::printAckSeqTimeline(Packet* pkt)///CG add
         fprintf(fpSeqno," *");
     }
 
+    
+    fprintf(fpSeqno, " %d", ( hdr_flags::access(pkt)->ecnecho() ? 1 : 0));
+    
+
+
     fprintf(fpSeqno,"\n");
     if((double)cwnd_ < 1 )
     {
@@ -2590,6 +2595,7 @@ void TcpAgent::printAckSeqTimeline(Packet* pkt)///CG add
            ,tcph->seqno(),tcph->ackno()
            ,(double) ssthresh_);
     }
+
 
     fclose(fpSeqno);
 }
@@ -2732,8 +2738,8 @@ void TcpAgent::printTcpSpeed()
         fprintf(stderr,"%s, Can't open file %s!\n",strerror(errno),str1);
     }
     
-    double fSpeed = (double)(sendSize - lastSize) / (schedDelay * 1000 * 1000) * 8;
-    fprintf(fpFlowSpeed, "%.lf\t", fSpeed);
+    double fSpeed = (double)(sendSize - lastSize) * 8.0 / (schedDelay * 1000.0 * 1000.0) ;
+    fprintf(fpFlowSpeed, "%lf %.2lf\t", Scheduler::instance().clock(), fSpeed);
     lastSize = sendSize;
 
 

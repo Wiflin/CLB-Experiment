@@ -124,7 +124,7 @@ void LinkDelay::recv(Packet* p, Handler* h)
 	//WF add end!
 
 	double txt = txtime(p);
-	fprintf(stderr, "%lf %d-%d %lf\n",Scheduler::instance().clock(),fromNodeID_, toNodeID_, bandwidth_ );
+	// fprintf(stderr, "%lf %d-%d %lf\n",Scheduler::instance().clock(),fromNodeID_, toNodeID_, bandwidth_ );
 	Scheduler& s = Scheduler::instance();
 	if (dynamic_) {
 		Event* e = (Event*)p;

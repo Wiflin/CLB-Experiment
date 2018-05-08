@@ -192,7 +192,13 @@ void Classifier::recv(Packet* p, Handler*h)
 	if (clb_enabled == 1)
 	{
 		assert(clb_ != 0);
-		clb_->recv(p, h);
+		int truncate = clb_->recv(p, h);
+
+		if (truncate)
+		{
+			Packet::free(p);
+			return;
+		}
 	}
 
 

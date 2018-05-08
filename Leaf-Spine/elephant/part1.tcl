@@ -55,17 +55,17 @@ for {set i 0} {$i<$topSwitchNumber} {incr i} {
 
 
 set rwndSize 4000
-set queueSpineSwitch 80
-set queueLeafSwitch 80
+set queueSpineSwitch 120
+set queueLeafSwitch 120
 
 set queueManage "DropTail"
 set ecnThresholdPortion 0.3
 
 # # set sendBufferSize [expr 10*$rwndSize]
-set sendBufferSize	4000
+set sendBufferSize	450
 set ecnThresholdPortionLeaf 0.3
 
-set linkRate	250M
+set linkRate	2500M
 # 0.02 ms
 set linkDelay 	0.02 
 
@@ -75,12 +75,13 @@ puts "initializing links between servers and leaf(i) switches......"
 for {set i 0} {$i<$accessSwitchNumber} {incr i} {
 	for {set j 0} {$j<$leafDownPortNumber} {incr j} {
 		set k [expr $i*$leafDownPortNumber+$j]
-		$ns simplex-link $n($k) $sLeaf($i) 1G 0.00002s $queueManage
+		$ns simplex-link $n($k) $sLeaf($i) 10G 0.00002s $queueManage
 		$ns queue-limit $n($k) $sLeaf($i) $sendBufferSize
-		$ns ecn-threshold $n($k) $sLeaf($i) [expr int($queueLeafSwitch*$ecnThresholdPortionLeaf)]
-		$ns simplex-link $sLeaf($i) $n($k) 1G 0.00002s $queueManage
-		$ns queue-limit $sLeaf($i) $n($k) $queueLeafSwitch
-		$ns ecn-threshold $sLeaf($i) $n($k) [expr int($queueLeafSwitch*$ecnThresholdPortionLeaf)]
+		# $ns ecn-threshold $n($k) $sLeaf($i) [expr int($queueLeafSwitch*$ecnThresholdPortionLeaf)]
+		$ns ecn-threshold $n($k) $sLeaf($i) [expr int($sendBufferSize*$ecnThresholdPortionLeaf)]
+		$ns simplex-link $sLeaf($i) $n($k) 10G 0.00002s $queueManage
+		$ns queue-limit $sLeaf($i) $n($k) $sendBufferSize
+		$ns ecn-threshold $sLeaf($i) $n($k) [expr int($sendBufferSize*$ecnThresholdPortionLeaf)]
 		puts "node([$n($k) set address_]) <-> leaf($i)([$sLeaf($i) set address_]) "
 
 		set queue1 [[$ns link $sLeaf($i) $n($k)] queue]
@@ -93,7 +94,7 @@ for {set i 0} {$i<$accessSwitchNumber} {incr i} {
 		set queue2 [[$ns link $n($k) $sLeaf($i)] queue]
 		# $queue2 monitor-QueueLen
 		# $queue2 monitor-Drop
-		# $queue2 monitor-FlowPath
+		$queue2 monitor-FlowPath
 		# $queue2 monitor-PathTrace
 	}
 }
@@ -455,7 +456,7 @@ puts "$limitStartTime,$limitEndTime"
 
 
 
-set timeLength [expr $latestFlowStartTime+1]
+set timeLength [expr $latestFlowStartTime+2]
 
 
 $ns at $timeLength "finish"

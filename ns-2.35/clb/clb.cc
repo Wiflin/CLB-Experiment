@@ -74,7 +74,7 @@ CLB::CLB(Node* n, Classifier* c) : n_(n), c_(c)
 	debug(str1);
 }
 
-void CLB::recv(Packet* p, Handler*h)
+int CLB::recv(Packet* p, Handler*h)
 {
 	int addr = n_->address();
 	hdr_ip* iph = hdr_ip::access(p);
@@ -82,28 +82,28 @@ void CLB::recv(Packet* p, Handler*h)
 
 	if (iph->dst_.addr_ == addr)
 	{
-		recv_proc(p, h);
+		return recv_proc(p, h);
 	}
 	else if (iph->src_.addr_ == addr)
 	{
-		send_proc(p, h);
+		return send_proc(p, h);
 	}
 }
 
-void CLB::recv_proc(Packet* p, Handler*h)
+int CLB::recv_proc(Packet* p, Handler*h)
 {
 	CLBProcessor* np = get_node_processor(HDR_IP(p)->src_.addr_);
 
-	np->recv(p, h);
+	return np->recv(p, h);
 
 	// flow_debug(p, h, "[recv packet]");
 }
 
-void CLB::send_proc(Packet* p, Handler*h)
+int CLB::send_proc(Packet* p, Handler*h)
 {
 	CLBProcessor* np = get_node_processor(HDR_IP(p)->dst_.addr_);
 
-	np->send(p, h);
+	return np->send(p, h);
 
 	// flow_debug(p, h, "[send packet]");	
 }

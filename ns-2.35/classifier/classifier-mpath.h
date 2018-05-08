@@ -81,6 +81,9 @@ protected:
 	int balance_flowlet(Packet* p);
 	int balance_ecmp(Packet* p);
 
+
+	int r; // for debug
+
 };
 
 #endif

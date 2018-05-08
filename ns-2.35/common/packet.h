@@ -81,11 +81,16 @@ struct CLBRow
 	unsigned SN_HSN;
 	unsigned gen_id;
 	unsigned block_size;
+	unsigned burst_id;
 
 	// used by receiver to response for a route
 	bool response_en;
 	unsigned vp_rid;
 	unsigned vp_rcnt;
+	bool vp_recn;
+	double ecn_ratio;
+	double ecn_accratio;
+	double burst_rate;
 };
 
 

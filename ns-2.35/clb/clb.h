@@ -70,7 +70,7 @@ public:
 	CLB(Node*, Classifier*);
 	~CLB();
 
-	void recv(Packet* p, Handler*h);
+	int recv(Packet* p, Handler*h);
 
 	
 	inline void debug_set(int flag) {
@@ -82,8 +82,8 @@ public:
 	}
 
 private:
-	void recv_proc(Packet* p, Handler*h);
-	void send_proc(Packet* p, Handler*h);
+	int recv_proc(Packet* p, Handler*h);
+	int send_proc(Packet* p, Handler*h);
 	void flow_debug(Packet* p, Handler*h, char* str="\0");
 	void debug(char* str, char* file = "CLB-Instance");
 	CLBProcessor* get_node_processor(int);

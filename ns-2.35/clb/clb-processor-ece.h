@@ -70,14 +70,13 @@ struct ca_record
 	unsigned send_undefined;
 	int recv_undefined;
 	double	 flying;
-	double 	 rate;
-	double	 r_rate;
+	// double 	 rate;
+	double ecn_ratio;
+	double ecn_accratio;
+
 	double 	 fresh_time;
-	double	 update_time;
-	double	 r_time;	
+	double	 update_time;	
 
-
-	unsigned recv_ece_cnt; // for debug
 	//just for ns2 simulator, it isn't needed in real
 	// double 	 last_update_time;
 
@@ -96,7 +95,16 @@ struct vp_record {
 struct ca_response {
 	unsigned hashkey;
 	unsigned recv_cnt;
-	bool	 recv_ecn;
+	unsigned recv_ce_cnt;
+	unsigned recv_ece_cnt; // for debug
+	unsigned recv_undefined;
+
+	double s_ratio; 	// smooth_ratio
+	double ratio;
+	double acc_ratio;
+	double last_ratio;
+	vector<bool> ecn_bitmap;	
+	vector<bool> acc_bitmap;	
 	double time;
 };
 
@@ -128,8 +136,6 @@ protected:
 	//virtual path record reference
 	struct vp_record* 	vp_alloc();
 	void				vp_free(unsigned);
-	struct vp_record* 	vp_next_at_ratio();
-	struct vp_record* 	vp_next_at_cost();
 	struct vp_record*	vp_next();	// SHOULD ALLOC INSTANCE IF IT'S NEEDED
 	struct vp_record*	vp_get(unsigned);	// DO NOT NEED TO ALLOC INSTANCE
 	//congestion aware record reference
@@ -143,12 +149,9 @@ protected:
 	double cost(struct ca_record* ca);
 	void ca_record_send(struct ca_record* ca);
 	void ca_record_recv(struct ca_record* ca, unsigned current_recv);
-	void ca_update_rrate(struct ca_record* ca, Packet* p);
-	void update_ca_record(struct ca_record* ca_row);
+	void update_ca_record(struct ca_record* ca_row, Packet* p);
 	void update_ca_response(struct ca_response* response, Packet* p);
-
-	// function packet send
-	Packet* pkt_alloc();
+	double updata_response_accratio(struct ca_response* response);
 
 	Node* 		n_;
 	Classifier*	c_;
@@ -162,6 +165,8 @@ protected:
 	unsigned hashkey_counter;
 	unsigned ece_cnt;
 
+	// unsigned t1,t2,t3;
+
 	// just for fun?
 	unsigned			sequence;
 	struct ca_record	global_ca;
@@ -174,24 +179,24 @@ protected:
 	map < unsigned, struct ca_response* >	ca_map;
 
 
-	inline double init_rate() {
-		// double irc = 1;
-		// unsigned vpcnt = 0;
-		// map < unsigned, struct vp_record* > :: iterator it = vp_map.begin();
+	// inline double init_rate() {
+	// 	// double irc = 1;
+	// 	// unsigned vpcnt = 0;
+	// 	// map < unsigned, struct vp_record* > :: iterator it = vp_map.begin();
 		
-		// for ( ; it != vp_map.end(); ++it)
-		// {
-		// 	if (it->second->ca_row.valid == 0)
-		// 		continue;
+	// 	// for ( ; it != vp_map.end(); ++it)
+	// 	// {
+	// 	// 	if (it->second->ca_row.valid == 0)
+	// 	// 		continue;
 
-		// 	vpcnt += 1;
-		// 	irc += it->second->ca_row.rate;
+	// 	// 	vpcnt += 1;
+	// 	// 	irc += it->second->ca_row.rate;
 
-		// }
-		// return (vpcnt ? (irc / vpcnt) : irc);
+	// 	// }
+	// 	// return (vpcnt ? (irc / vpcnt) : irc);
 
-		return 1.0;
-	}
+	// 	return 1.0;
+	// }
 
 	inline void init_vp_record(struct vp_record* vp) {
 		vp->hashkey = 0;
@@ -205,23 +210,31 @@ protected:
 		ca_row->recv_undefined = 0;
 
 		// maybe change to current average of rate
-		ca_row->rate = init_rate();
-		ca_row->r_rate = 1E+37;
+		// ca_row->rate = init_rate();
 		ca_row->flying = 0;
+
+		ca_row->ecn_ratio = 0;
+		ca_row->ecn_accratio = 0;
 
 		ca_row->update_time = Scheduler::instance().clock();
 		ca_row->fresh_time = Scheduler::instance().clock();
-		ca_row->r_time = Scheduler::instance().clock();
 		// ca_row->last_update_time = Scheduler::instance().clock();
 		ca_row->valid = 1;
 		ca_row->pending = 0;
-		ca_row->recv_ece_cnt = 0;
 	}
 
 	inline void init_ca_response(struct ca_response* ca) {
 		ca->hashkey = 0;
 		ca->recv_cnt = 0;
-		ca->recv_ecn = 0;
+		ca->recv_ce_cnt = 0;
+		ca->recv_ece_cnt = 0;
+		ca->recv_undefined = 0;
+		ca->s_ratio = 0;
+		ca->ratio = 0;
+		ca->acc_ratio = 0;
+		ca->last_ratio = 0;
+		ca->ecn_bitmap.clear();
+		ca->acc_bitmap.clear();
 		ca->time = Scheduler::instance().clock();
 	}
 
@@ -237,9 +250,10 @@ protected:
 	void vpRecvNew_debug();
 	void vpFlying_debug();
 	void vpRate_debug();
-	void vpRRate_debug();
+	void vpRatio_debug();
+	void vpACCRatio_debug();
+	void vpECE_debug(struct ca_response* response);
 	void ipECE_debug();
-	void vpECE_debug();
 };
 
 
