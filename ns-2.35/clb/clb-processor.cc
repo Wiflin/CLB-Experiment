@@ -75,6 +75,7 @@
 #define T_RTIME		((double)PRE_RTT * 40)
 #define T_RSSTIME	((double)PRE_RTT * 50)
 #define T_VP_EXPIRE	((double)0.5)
+#define T_BURST_EXPIRE	((double)PRE_RTT * 15)
 #define RATE_ALPHA 	((double)0.30)
 #define FLY_ALPHA	((double)0.30)
 #define VP_SIZE		((int)6)	
@@ -106,7 +107,7 @@ CLBProcessor::CLBProcessor(Node* node, Classifier* classifier, CLB* clb, int src
 	mkdir(dir.str().c_str(),0777);
 
 	char str1[128];
-	sprintf(str1,"[constructor] %lf global_ca=%p\tglobal_response=%p",Scheduler::instance().clock(),&global_ca,&global_response);
+	sprintf(str1,"[constructor] %lf node=%d src=%d dst=%d",Scheduler::instance().clock(),n_->address(),src_,dst_);
 	flow_debug(str1,"Record");
 
 }
@@ -115,11 +116,7 @@ CLBProcessor::CLBProcessor(Node* node, Classifier* classifier, CLB* clb, int src
 
 int CLBProcessor::recv(Packet* p, Handler*h)
 {
-	if (hdr_ip::access(p)->src_.port_ == 100)
-	{
-		fprintf(stderr, "%d recv port 100 pkt from %d\n", src_,dst_);
-		return 1;
-	}
+	
 
 
 	if ((VP_Module | CA_Module) == 0)
@@ -129,9 +126,9 @@ int CLBProcessor::recv(Packet* p, Handler*h)
 	hdr_cmn* cmnh = hdr_cmn::access(p);
 
 	// make no sense
-	if (cmnh->clb_row.record_en != 1 && 
-		cmnh->clb_row.response_en != 1 )
-		return 0;
+	// if (cmnh->clb_row.record_en != 1 && 
+	// 	cmnh->clb_row.response_en != 1 )
+	// 	return 0;
 
 	// if only VP_Module is enabled, the sender will do nothing
 	if (VP_Module == 1)
@@ -147,16 +144,27 @@ int CLBProcessor::recv(Packet* p, Handler*h)
 		// work as a sender -> update sender-record according feedback vp_rcnt
 		if (cmnh->clb_row.response_en == 1)
 			ca_record_recv(&global_ca, cmnh->clb_row.vp_rcnt);
-		ca_update_rrate(&global_ca, p);
 		// work as a receiver -> update (hashkey,recv-cnt) tuple according what?
 		update_ca_response(&global_response, p);
 	}
 
-
+	// if (hdr_ip::access(p)->src_.port_ == 100)
+	// 	fprintf(stderr, "[clb-processor recv]saw packet port 100! %u vp=%u burst_id=%u\n", 
+	// 			p->uid(), cmnh->clb_row.vp_id, cmnh->clb_row.burst_id);
+{
+	
+	char str1[228];
+	sprintf(str1,"[%lf recv]\tpuid=%u\thashkey=%6u\ten=%d\trate=%lf",Scheduler::instance().clock(),p->uid(),
+		cmnh->clb_row.vp_rid,cmnh->clb_row.response_en,cmnh->clb_row.burst_rate);
+	flow_debug(str1,"Recv");
+}
 	if ((VP_Module & CA_Module) == 1)
 	{
 		// work as a sender -> update sender-record according feedback vp_rcnt
 		// if (cmnh->clb_row.response_en == 1 && cmnh->clb_row.vp_rid != 0)
+
+		
+
 		if (cmnh->clb_row.response_en == 1)
 		{
 			struct vp_record* vp = vp_get(cmnh->clb_row.vp_rid);
@@ -167,15 +175,18 @@ int CLBProcessor::recv(Packet* p, Handler*h)
 			else {
 				assert(vp->hashkey == cmnh->clb_row.vp_rid);
 
-				char str1[228];
-				int recv_undefined = cmnh->clb_row.vp_rcnt - vp->ca_row.recv_cnt;
-				sprintf(str1,"[%lf recv]\thashkey=%6u\toddrecv=%u\tcurrecv=%u\trecv*=%d",Scheduler::instance().clock(),
-					vp->hashkey,vp->ca_row.recv_cnt,cmnh->clb_row.vp_rcnt,recv_undefined);
-				flow_debug(str1,"Recv");
+
 				
+				if (cmnh->clb_row.burst_rate > 1)
+				{
+					vp->ca_row.r_rate = cmnh->clb_row.burst_rate;
+					Packet::free(p);
+					return 1;
+				}
+
 
 				ca_record_recv(&vp->ca_row, cmnh->clb_row.vp_rcnt);
-				ca_update_rrate(&vp->ca_row, p);
+				vp_update_rrate(vp, p);
 			}
 		}
 
@@ -188,10 +199,24 @@ int CLBProcessor::recv(Packet* p, Handler*h)
 		if (response == 0)
 			response = ca_alloc(cmnh->clb_row.vp_id);
 
-		if (response)
-			update_ca_response(response, p);
-		else 
+		if (response == 0)
+		{
 			fprintf(stderr, "[clb-processor recv] couldn't get ca_response instance!\n");
+			return 1;
+		}
+		
+		if (cmnh->clb_row.burst_id > 0)
+		{
+			update_ca_burst(response, p);
+			Packet::free(p);
+			return 1;
+		}
+
+		
+
+
+		update_ca_response(response, p);
+		
 	}
 
 
@@ -606,8 +631,9 @@ void CLBProcessor::ca_record_recv(struct ca_record* ca, unsigned current_recv)
 
 
 
-void CLBProcessor::ca_update_rrate(struct ca_record* ca, Packet* p)
+void CLBProcessor::vp_update_rrate(struct vp_record* vp, Packet* p)
 {
+	struct ca_record* ca = &vp->ca_row;
 	double now = Scheduler::instance().clock();
 
 	if (hdr_cmn::access(p)->clb_row.vp_recn == true 
@@ -632,6 +658,9 @@ void CLBProcessor::ca_update_rrate(struct ca_record* ca, Packet* p)
 
 			Packet* p = pkt_alloc();
 			hdr_cmn::access(p)->clb_row.burst_id = i;
+			hdr_cmn::access(p)->clb_row.vp_id = vp->hashkey;
+
+			vpBurstSend_debug(p);
 
 			NsObject* target = c_->find(p);
 			if (target == NULL) 
@@ -647,8 +676,11 @@ void CLBProcessor::ca_update_rrate(struct ca_record* ca, Packet* p)
 				target->recv(p, (Handler*) 0);///original ends
 				
 			// fprintf(stderr, "burst sent %d to %p\n", p->uid(), target);
+ 			
 
 		}
+
+		ca->r_time = now;
 	}
 }
 
@@ -697,6 +729,56 @@ void CLBProcessor::update_ca_response(struct ca_response* response, Packet* p)
 	// sprintf(str1,"[clb-processor update_ca_response] %lf\t%p\trecv-cnt=%d",
 	// 	Scheduler::instance().clock(),response,response->recv_cnt);
 	// flow_debug(str1);
+
+}
+
+
+void CLBProcessor::update_ca_burst(struct ca_response* response, Packet* p)
+{
+	vpBurstRecv_debug(p);
+
+	double now = Scheduler::instance().clock();
+
+	if (response->burst_pending == 0 || now - response->burst_time > T_RSSTIME)
+	{
+		response->burst_pending = 1;
+		response->burst_cnt = 1;
+		response->burst_time = now;
+		
+		return;
+	}
+
+	response->burst_cnt ++;
+
+
+	if (hdr_cmn::access(p)->clb_row.burst_id == 1)
+	{
+		double delta_time = now - response->burst_time;
+		double r_rate = (double) response->burst_cnt / delta_time;
+
+		Packet* rp = pkt_alloc();
+		struct hdr_cmn* cmnh = hdr_cmn::access(rp);
+		
+		cmnh->clb_row.response_en = 1;
+		cmnh->clb_row.vp_rid = response->hashkey;
+		cmnh->clb_row.burst_rate = r_rate;
+
+		fprintf(stderr, "burst rate update from %d to %d %lf\n", n_->address(), hdr_ip::access(rp)->dst_.addr_, r_rate);
+
+		NsObject* target = c_->find(rp);
+		if (target == NULL) 
+		{
+	 		Packet::free(rp);
+			fprintf(stderr, "[update_ca_burst] cannot get targe.\n");
+		}
+
+		else 
+			target->recv(rp, (Handler*) 0);///original ends
+				
+
+	}
+
+
 
 }
 
@@ -1178,5 +1260,53 @@ void CLBProcessor::vpECE_debug()
     	fprintf(fpResult, "%u ",it->second->ca_row.recv_ece_cnt);
     }
     fprintf(fpResult, "\n");
+	fclose(fpResult);
+}
+
+
+void CLBProcessor::vpBurstSend_debug(Packet* p)
+{
+	char str1[128];
+	memset(str1,0,128*sizeof(char));
+	sprintf(str1,"CLB/%d/VPBurstSend-%d.tr",src_,dst_);
+	FILE* fpResult=fopen(str1,"a+");
+	if(fpResult==NULL)
+    {
+        fprintf(stderr,"Can't open file %s!\n",str1);
+        return;
+    	// return(TCL_ERROR);
+    } 
+
+    fprintf(fpResult, "%lf ",Scheduler::instance().clock());
+
+    fprintf(fpResult, "%d %u %u\n", 
+    	n_->address(),
+    	hdr_cmn::access(p)->clb_row.vp_id,
+    	hdr_cmn::access(p)->clb_row.burst_id);
+
+	fclose(fpResult);
+}
+
+void CLBProcessor::vpBurstRecv_debug(Packet* p)
+{
+	char str1[128];
+	memset(str1,0,128*sizeof(char));
+	sprintf(str1,"CLB/%d/VPBurstRecv-%d.tr",src_,dst_);
+	FILE* fpResult=fopen(str1,"a+");
+	if(fpResult==NULL)
+    {
+        fprintf(stderr,"Can't open file %s!\n",str1);
+        return;
+    	// return(TCL_ERROR);
+    } 
+
+    fprintf(fpResult, "%lf  ",Scheduler::instance().clock());
+
+    fprintf(fpResult, "%d %u %u %lf\n", 
+    	n_->address(),
+    	hdr_cmn::access(p)->clb_row.vp_id,
+    	hdr_cmn::access(p)->clb_row.burst_id,
+    	hdr_cmn::access(p)->clb_row.burst_rate);
+
 	fclose(fpResult);
 }

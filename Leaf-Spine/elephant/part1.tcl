@@ -36,6 +36,8 @@ for {set i 0} {$i<$serverNumber} {incr i} {
 	set n($i) [$ns node]
 	$n($i) enable-salt
 	[$n($i) entry] enable-clb
+
+	puts [$n($i) entry]
 }
 # [$n(0) entry] enable-clb
 # [$n(40) entry] enable-clb
@@ -65,7 +67,7 @@ set ecnThresholdPortion 0.3
 set sendBufferSize	450
 set ecnThresholdPortionLeaf 0.3
 
-set linkRate	2500M
+set linkRate	250M
 # 0.02 ms
 set linkDelay 	0.02 
 
@@ -75,11 +77,11 @@ puts "initializing links between servers and leaf(i) switches......"
 for {set i 0} {$i<$accessSwitchNumber} {incr i} {
 	for {set j 0} {$j<$leafDownPortNumber} {incr j} {
 		set k [expr $i*$leafDownPortNumber+$j]
-		$ns simplex-link $n($k) $sLeaf($i) 10G 0.00002s $queueManage
+		$ns simplex-link $n($k) $sLeaf($i) 1G 0.00002s $queueManage
 		$ns queue-limit $n($k) $sLeaf($i) $sendBufferSize
 		# $ns ecn-threshold $n($k) $sLeaf($i) [expr int($queueLeafSwitch*$ecnThresholdPortionLeaf)]
 		$ns ecn-threshold $n($k) $sLeaf($i) [expr int($sendBufferSize*$ecnThresholdPortionLeaf)]
-		$ns simplex-link $sLeaf($i) $n($k) 10G 0.00002s $queueManage
+		$ns simplex-link $sLeaf($i) $n($k) 1G 0.00002s $queueManage
 		$ns queue-limit $sLeaf($i) $n($k) $sendBufferSize
 		$ns ecn-threshold $sLeaf($i) $n($k) [expr int($sendBufferSize*$ecnThresholdPortionLeaf)]
 		puts "node([$n($k) set address_]) <-> leaf($i)([$sLeaf($i) set address_]) "

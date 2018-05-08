@@ -97,6 +97,9 @@ struct ca_response {
 	unsigned hashkey;
 	unsigned recv_cnt;
 	bool	 recv_ecn;
+	int 	 burst_pending;
+	int 	 burst_cnt;
+	double	 burst_time;
 	double time;
 };
 
@@ -143,10 +146,10 @@ protected:
 	double cost(struct ca_record* ca);
 	void ca_record_send(struct ca_record* ca);
 	void ca_record_recv(struct ca_record* ca, unsigned current_recv);
-	void ca_update_rrate(struct ca_record* ca, Packet* p);
+	void vp_update_rrate(struct vp_record* ca, Packet* p);
 	void update_ca_record(struct ca_record* ca_row);
 	void update_ca_response(struct ca_response* response, Packet* p);
-
+	void update_ca_burst(struct ca_response* response, Packet* p);
 	// function packet send
 	Packet* pkt_alloc();
 
@@ -222,6 +225,9 @@ protected:
 		ca->hashkey = 0;
 		ca->recv_cnt = 0;
 		ca->recv_ecn = 0;
+		ca->burst_pending = 0;
+		ca->burst_cnt = 0;
+		ca->burst_time = Scheduler::instance().clock();
 		ca->time = Scheduler::instance().clock();
 	}
 
@@ -240,6 +246,8 @@ protected:
 	void vpRRate_debug();
 	void ipECE_debug();
 	void vpECE_debug();
+	void vpBurstSend_debug(Packet* p);
+	void vpBurstRecv_debug(Packet* p);
 };
 
 

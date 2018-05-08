@@ -163,6 +163,15 @@ int Classifier::getnxt(NsObject *nullagent)
  */
 void Classifier::recv(Packet* p, Handler*h)
 {
+	// if (hdr_ip::access(p)->src_.port_ == 100)
+	// {
+	// 	hdr_cmn* cmnh = hdr_cmn::access(p);
+	// 	fprintf(stderr, "[clb-processor recv %d]some packet uncaughted! %u vp=%u burst_id=%u\n", 
+	// 		nodeID_, p->uid(), cmnh->clb_row.vp_id, cmnh->clb_row.burst_id);
+	// 	return;
+	// }
+
+
 	////WF add
 	// record packet if conga flag is set in packet header
 	if (conga_enabled() == 1) 
@@ -196,7 +205,16 @@ void Classifier::recv(Packet* p, Handler*h)
 
 		if (truncate)
 		{
+
 			Packet::free(p);
+			return;
+		}
+
+		if (hdr_ip::access(p)->src_.port_ == 100)
+		{
+			hdr_cmn* cmnh = hdr_cmn::access(p);
+			fprintf(stderr, "[clb-processor recv %d]%lf some packet(%u) uncaughted!  vp=%u vprid=%u burst_id=%u\n", 
+				nodeID_,Scheduler::instance().clock(),p->uid(),cmnh->clb_row.vp_id, cmnh->clb_row.vp_rid, cmnh->clb_row.burst_id);
 			return;
 		}
 	}
