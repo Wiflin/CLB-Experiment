@@ -91,6 +91,7 @@ struct CLBRow
 	double ecn_ratio;
 	double ecn_accratio;
 	double burst_rate;
+	// double burst_rid;
 };
 
 

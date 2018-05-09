@@ -164,6 +164,7 @@ protected:
 	int cost_flag;	// for debug
 	unsigned hashkey_counter;
 	unsigned ece_cnt;
+	unsigned max_ece_cnt;
 
 	// just for fun?
 	unsigned			sequence;

@@ -5,7 +5,7 @@ set ns [new Simulator]
 
 set serverNumber 		80
 set accessSwitchNumber 	2
-set topSwitchNumber 	4
+set topSwitchNumber 	3
 
 set leafUpPortNumber $topSwitchNumber
 set leafDownPortNumber 40
@@ -37,7 +37,7 @@ for {set i 0} {$i<$serverNumber} {incr i} {
 	$n($i) enable-salt
 	[$n($i) entry] enable-clb
 
-	puts [$n($i) entry]
+	# puts [$n($i) entry]
 }
 # [$n(0) entry] enable-clb
 # [$n(40) entry] enable-clb
@@ -56,34 +56,36 @@ for {set i 0} {$i<$topSwitchNumber} {incr i} {
 
 
 
-set rwndSize 4000
-set queueSpineSwitch 120
-set queueLeafSwitch 120
+set rwndSize 100000
+set queueSpineSwitch 1600
+set queueLeafSwitch 1600
 
 set queueManage "DropTail"
 set ecnThresholdPortion 0.3
 
-# # set sendBufferSize [expr 10*$rwndSize]
-set sendBufferSize	450
+# set sendBufferSize [expr 10*$rwndSize]
+set sendBufferSize_origin	4800
+set sendBufferSize	100000
 set ecnThresholdPortionLeaf 0.3
 
-set linkRate	250M
+set linkRate	40G
 # 0.02 ms
 set linkDelay 	0.02 
-
+# 
 
 #leaf <-> node
 puts "initializing links between servers and leaf(i) switches......"
 for {set i 0} {$i<$accessSwitchNumber} {incr i} {
 	for {set j 0} {$j<$leafDownPortNumber} {incr j} {
 		set k [expr $i*$leafDownPortNumber+$j]
-		$ns simplex-link $n($k) $sLeaf($i) 1G 0.00002s $queueManage
+		$ns simplex-link $n($k) $sLeaf($i) 120G 0.00002s $queueManage
 		$ns queue-limit $n($k) $sLeaf($i) $sendBufferSize
 		# $ns ecn-threshold $n($k) $sLeaf($i) [expr int($queueLeafSwitch*$ecnThresholdPortionLeaf)]
-		$ns ecn-threshold $n($k) $sLeaf($i) [expr int($sendBufferSize*$ecnThresholdPortionLeaf)]
-		$ns simplex-link $sLeaf($i) $n($k) 1G 0.00002s $queueManage
-		$ns queue-limit $sLeaf($i) $n($k) $sendBufferSize
-		$ns ecn-threshold $sLeaf($i) $n($k) [expr int($sendBufferSize*$ecnThresholdPortionLeaf)]
+		$ns ecn-threshold $n($k) $sLeaf($i) [expr int($sendBufferSize)]
+
+		$ns simplex-link $sLeaf($i) $n($k) 120G 0.00002s $queueManage
+		$ns queue-limit $sLeaf($i) $n($k) $sendBufferSize_origin
+		$ns ecn-threshold $sLeaf($i) $n($k) [expr int($sendBufferSize_origin*$ecnThresholdPortionLeaf)]
 		puts "node([$n($k) set address_]) <-> leaf($i)([$sLeaf($i) set address_]) "
 
 		set queue1 [[$ns link $sLeaf($i) $n($k)] queue]
@@ -96,7 +98,7 @@ for {set i 0} {$i<$accessSwitchNumber} {incr i} {
 		set queue2 [[$ns link $n($k) $sLeaf($i)] queue]
 		# $queue2 monitor-QueueLen
 		# $queue2 monitor-Drop
-		$queue2 monitor-FlowPath
+		# $queue2 monitor-FlowPath
 		# $queue2 monitor-PathTrace
 	}
 }
@@ -129,7 +131,7 @@ for {set i 0} {$i<$accessSwitchNumber} {incr i} {
 			# $queue2 tag-timestamp
 			# $queue2 monitor-QueueLen
 			$queue2 monitor-FlowPath
-			$queue2 monitor-FlowSpeed
+			# $queue2 monitor-FlowSpeed
 			# $queue2 monitor-Drop
 			# $queue2 monitor-PathTrace
 			
@@ -377,9 +379,9 @@ for {set k 0} {$k<$flowNumber} {incr k} {
 
 		# $tcp($currentInsertingConnID) monitor-spare-window
 
-		$tcp($currentInsertingConnID) monitor-Sequence
+		# $tcp($currentInsertingConnID) monitor-Sequence
 		$tcp($currentInsertingConnID) monitor-Speed
-		$tcpsink($currentInsertingConnID) monitor-Sequence
+		# $tcpsink($currentInsertingConnID) monitor-Sequence
 
 		$tcp($currentInsertingConnID) no-syn sender
 		$tcpsink($currentInsertingConnID) no-syn receiver
@@ -458,7 +460,7 @@ puts "$limitStartTime,$limitEndTime"
 
 
 
-set timeLength [expr $latestFlowStartTime+2]
+set timeLength [expr $latestFlowStartTime+20]
 
 
 $ns at $timeLength "finish"

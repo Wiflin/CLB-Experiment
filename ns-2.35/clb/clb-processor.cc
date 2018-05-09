@@ -73,13 +73,15 @@
 #define PRE_RTT		((double)1.6E-4)
 #define T_REFRESH  	((double)5E-4)
 #define T_RTIME		((double)PRE_RTT * 40)
-#define T_RSSTIME	((double)PRE_RTT * 50)
+#define T_RSSTIME	((double)PRE_RTT * 10)
+#define T_RSSMAX	((double)PRE_RTT * 3000)
 #define T_VP_EXPIRE	((double)0.5)
 #define T_BURST_EXPIRE	((double)PRE_RTT * 15)
-#define RATE_ALPHA 	((double)0.30)
+#define RATE_ALPHA 	((double)0.15)
 #define FLY_ALPHA	((double)0.30)
-#define VP_SIZE		((int)6)	
+#define VP_SIZE		((int)8)	
 #define COST_EQUAL  ((double)1E-4)
+#define BURST_PKTCNT	((int)1000)
 
 
 void CLBProcessorTimer::expire(Event *e)
@@ -90,7 +92,7 @@ void CLBProcessorTimer::expire(Event *e)
 
 CLBProcessor::CLBProcessor(Node* node, Classifier* classifier, CLB* clb, int src, int dst)
  : n_(node), c_(classifier), clb_(clb), pt_(this), src_(src), dst_(dst), flag(0), cost_flag(0), hashkey_counter(0)
- 	, ece_cnt(0)
+ 	, ece_cnt(0), max_ece_cnt(1)
 {
 	// srand(time(NULL));
 
@@ -106,9 +108,9 @@ CLBProcessor::CLBProcessor(Node* node, Classifier* classifier, CLB* clb, int src
 	dir << "CLB/" << src_;
 	mkdir(dir.str().c_str(),0777);
 
-	char str1[128];
-	sprintf(str1,"[constructor] %lf node=%d src=%d dst=%d",Scheduler::instance().clock(),n_->address(),src_,dst_);
-	flow_debug(str1,"Record");
+	// char str1[128];
+	// sprintf(str1,"[constructor] %lf node=%d src=%d dst=%d",Scheduler::instance().clock(),n_->address(),src_,dst_);
+	// flow_debug(str1,"Record");
 
 }
 
@@ -151,13 +153,13 @@ int CLBProcessor::recv(Packet* p, Handler*h)
 	// if (hdr_ip::access(p)->src_.port_ == 100)
 	// 	fprintf(stderr, "[clb-processor recv]saw packet port 100! %u vp=%u burst_id=%u\n", 
 	// 			p->uid(), cmnh->clb_row.vp_id, cmnh->clb_row.burst_id);
-{
+// {
 	
-	char str1[228];
-	sprintf(str1,"[%lf recv]\tpuid=%u\thashkey=%6u\ten=%d\trate=%lf",Scheduler::instance().clock(),p->uid(),
-		cmnh->clb_row.vp_rid,cmnh->clb_row.response_en,cmnh->clb_row.burst_rate);
-	flow_debug(str1,"Recv");
-}
+// 	char str1[228];
+// 	sprintf(str1,"[%lf recv]\tpuid=%u\thashkey=%6u\ten=%d\trate=%lf",Scheduler::instance().clock(),p->uid(),
+// 		cmnh->clb_row.vp_rid,cmnh->clb_row.response_en,cmnh->clb_row.burst_rate);
+// 	flow_debug(str1,"Recv");
+// }
 	if ((VP_Module & CA_Module) == 1)
 	{
 		// work as a sender -> update sender-record according feedback vp_rcnt
@@ -230,16 +232,16 @@ int CLBProcessor::send(Packet* p, Handler*h)
 {
 	// flow_debug(p);
 
-	vpcost_debug();
-	vpSendCnt_debug();
-	vpRecvCnt_debug();
-	vpSendNew_debug();
-	vpRecvNew_debug();
-	vpFlying_debug();
-	vpRate_debug();
-	vpRRate_debug();
-	ipECE_debug();
-	vpECE_debug();
+	// vpcost_debug();
+	// vpSendCnt_debug();
+	// vpRecvCnt_debug();
+	// vpSendNew_debug();
+	// vpRecvNew_debug();
+	// vpFlying_debug();
+	// vpRate_debug();
+	// vpRRate_debug();
+	// ipECE_debug();
+	// vpECE_debug();
 
 
 	if ((VP_Module | CA_Module) == 0)
@@ -304,18 +306,18 @@ int CLBProcessor::send(Packet* p, Handler*h)
 
 	double fly = vp->ca_row.flying + vp->ca_row.send_undefined - vp->ca_row.recv_undefined;
 	double cost_ = cost(&vp->ca_row);
-	char str1[128];
-	sprintf(str1,"[%lf send]\thashkey=%6u\t flying=%lf\t   rate=%4.2lf\t   cost=%4.2lf\t\t\t\t\tsend*=%u\trecv*=%d",Scheduler::instance().clock(),
-		clb_hashkey,fly,vp->ca_row.rate,cost_,vp->ca_row.send_undefined,vp->ca_row.recv_undefined);
-	flow_debug(str1,"Send");
+	// char str1[128];
+	// sprintf(str1,"[%lf send]\thashkey=%6u\t flying=%lf\t   rate=%4.2lf\t   cost=%4.2lf\t\t\t\t\tsend*=%u\trecv*=%d",Scheduler::instance().clock(),
+	// 	clb_hashkey,fly,vp->ca_row.rate,cost_,vp->ca_row.send_undefined,vp->ca_row.recv_undefined);
+	// flow_debug(str1,"Send");
 
 	return 0;
 }
 
 void CLBProcessor::expire(Event *e)
 {	
-	flow_debug("\n[clb-processor expire]\n","Send");
-	flow_debug("\n[clb-processor expire]\n","Recv");
+	// flow_debug("\n[clb-processor expire]\n","Send");
+	// flow_debug("\n[clb-processor expire]\n","Recv");
 
 	// vpcost_debug(1);
 	// vpsend_debug();
@@ -339,7 +341,7 @@ void CLBProcessor::expire(Event *e)
 		++it;
 	}
 
-	vpt_debug();
+	// vpt_debug();
 
 	// 2. resched()
 	pt_.resched(T_REFRESH);
@@ -347,12 +349,12 @@ void CLBProcessor::expire(Event *e)
 
 struct vp_record* CLBProcessor::vp_alloc()
 {
-	// unsigned hashkey = rand() % 65535;
+	unsigned hashkey = rand() % 65535;
 
-	// while (vp_map.find(hashkey) != vp_map.end())
-	// 	hashkey = rand() % 65535;
+	while (vp_map.find(hashkey) != vp_map.end())
+		hashkey = rand() % 65535;
 
-	unsigned hashkey = hashkey_counter ++;
+	// unsigned hashkey = hashkey_counter ++;
 
 	struct vp_record*	vp = new struct vp_record();
 
@@ -362,9 +364,9 @@ struct vp_record* CLBProcessor::vp_alloc()
 	vp_map[hashkey] = vp;
 
 
-	char str1[128];
-	sprintf(str1,"[vp_alloc]\t%lf\t%8d\t%p\t%lf\t%u",Scheduler::instance().clock(),hashkey,vp,cost(&vp->ca_row),vp->ca_row.recv_ece_cnt);
-	flow_debug(str1,"Record");
+	// char str1[128];
+	// sprintf(str1,"[vp_alloc]\t%lf\t%8d\t%p\t%lf\t%u",Scheduler::instance().clock(),hashkey,vp,cost(&vp->ca_row),vp->ca_row.recv_ece_cnt);
+	// flow_debug(str1,"Record");
 
 
 	return vp;
@@ -373,9 +375,9 @@ struct vp_record* CLBProcessor::vp_alloc()
 
 void CLBProcessor::vp_free(unsigned hashkey) 
 {
-	char str1[128];
-	sprintf(str1,"[vp_free]\t%lf\t%8d",Scheduler::instance().clock(),hashkey);
-	flow_debug(str1,"Record");
+	// char str1[128];
+	// sprintf(str1,"[vp_free]\t%lf\t%8d",Scheduler::instance().clock(),hashkey);
+	// flow_debug(str1,"Record");
 
 
 	map < unsigned, struct vp_record* > :: iterator it = vp_map.find(hashkey);
@@ -514,8 +516,8 @@ struct vp_record* CLBProcessor::vp_next_at_cost()
 		return vp;
 
 	
-	fprintf(stderr, "[clb-processor vp_next] Could not find a vp_record! cost=%lf\tcnt=%d\tmap_size=%d\n",	
-		cost_min, vp_cnt, vp_map.size());
+	// fprintf(stderr, "[clb-processor vp_next] Could not find a vp_record! cost=%lf\tcnt=%d\tmap_size=%d\n",	
+	// 	cost_min, vp_cnt, vp_map.size());
 
 	return NULL;
 }
@@ -649,18 +651,28 @@ void CLBProcessor::vp_update_rrate(struct vp_record* vp, Packet* p)
 		ca->recv_ece_cnt += 1;
 
 		ca->r_time = now;
+
+		if (ca->recv_ece_cnt > max_ece_cnt)
+			max_ece_cnt = ca->recv_ece_cnt;
 	}
 
-	if (now - ca->r_time > T_RSSTIME && fabs(ca->r_rate - 1E+37) >= 1E+36)
+	fprintf(stderr, "【vp_update_rrate】%lf\n", ((double)ca->recv_ece_cnt / max_ece_cnt) );
+
+	if ((now - ca->r_time > T_RSSTIME && 
+		now - ca->r_time > T_RSSMAX * ((double)ca->recv_ece_cnt / max_ece_cnt) &&
+		fabs(ca->r_rate - 1E+37) >= 1E+36) || 
+		(fabs(ca->r_rate - 1E+37) < 1E+36 &&
+		ca->pending == 0))
 	{
-		for (int i = 11; i > 0; i--)
+		ca->pending = 1;
+		for (int i = BURST_PKTCNT; i > 0; i--)
 		{
 
 			Packet* p = pkt_alloc();
 			hdr_cmn::access(p)->clb_row.burst_id = i;
 			hdr_cmn::access(p)->clb_row.vp_id = vp->hashkey;
-
-			vpBurstSend_debug(p);
+			hdr_cmn::access(p)->ecmpHashKey = vp->hashkey;
+			// vpBurstSend_debug(p);
 
 			NsObject* target = c_->find(p);
 			if (target == NULL) 
@@ -735,11 +747,11 @@ void CLBProcessor::update_ca_response(struct ca_response* response, Packet* p)
 
 void CLBProcessor::update_ca_burst(struct ca_response* response, Packet* p)
 {
-	vpBurstRecv_debug(p);
+	// vpBurstRecv_debug(p);
 
 	double now = Scheduler::instance().clock();
 
-	if (response->burst_pending == 0 || now - response->burst_time > T_RSSTIME)
+	if (response->burst_pending == 0 || now - response->burst_time > (T_RSSTIME / 2) )
 	{
 		response->burst_pending = 1;
 		response->burst_cnt = 1;
@@ -763,7 +775,8 @@ void CLBProcessor::update_ca_burst(struct ca_response* response, Packet* p)
 		cmnh->clb_row.vp_rid = response->hashkey;
 		cmnh->clb_row.burst_rate = r_rate;
 
-		fprintf(stderr, "burst rate update from %d to %d %lf\n", n_->address(), hdr_ip::access(rp)->dst_.addr_, r_rate);
+		// fprintf(stderr, "%lf burst rate update from %d to %d(rvp %u) start=%lf cnt=%d time=%lf new_rate=%lf\n", now,
+		//  n_->address(), hdr_ip::access(rp)->dst_.addr_, response->hashkey, response->burst_time, response->burst_cnt, delta_time, r_rate);
 
 		NsObject* target = c_->find(rp);
 		if (target == NULL) 
@@ -775,6 +788,8 @@ void CLBProcessor::update_ca_burst(struct ca_response* response, Packet* p)
 		else 
 			target->recv(rp, (Handler*) 0);///original ends
 				
+
+		response->burst_pending = 0;
 
 	}
 
@@ -1279,7 +1294,7 @@ void CLBProcessor::vpBurstSend_debug(Packet* p)
 
     fprintf(fpResult, "%lf ",Scheduler::instance().clock());
 
-    fprintf(fpResult, "%d %u %u\n", 
+    fprintf(fpResult, "node=%d vp_id=%u %u\n", 
     	n_->address(),
     	hdr_cmn::access(p)->clb_row.vp_id,
     	hdr_cmn::access(p)->clb_row.burst_id);
@@ -1302,7 +1317,7 @@ void CLBProcessor::vpBurstRecv_debug(Packet* p)
 
     fprintf(fpResult, "%lf  ",Scheduler::instance().clock());
 
-    fprintf(fpResult, "%d %u %u %lf\n", 
+    fprintf(fpResult, "node=%d vp=%u burst_id=%u %lf\n", 
     	n_->address(),
     	hdr_cmn::access(p)->clb_row.vp_id,
     	hdr_cmn::access(p)->clb_row.burst_id,

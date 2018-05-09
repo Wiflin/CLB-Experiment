@@ -182,14 +182,14 @@ int MultiPathForwarder::mpath_route(Packet* p)
 	// fprintf(stderr,"[mpath-classifier] %lf-Node-%d conga=%d\n",Scheduler::instance().clock(),n_->nodeid(),conga_enabled());
 
 
-	r = (++r) % (maxslot_+1);
-	return r;
+	// r = (++r) % (maxslot_+1);
+	// return r;
 
 
-	// if(conga_enabled() == 1)
-	// 	return conga_()->route(p, this);
-	// else
-	// 	return rand();
+	if(conga_enabled() == 1)
+		return conga_()->route(p, this);
+	else
+		return rand();
 }
 
 //CG add
