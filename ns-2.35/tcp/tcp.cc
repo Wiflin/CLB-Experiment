@@ -1189,6 +1189,44 @@ double TcpAgent::increase_param()
 	}       
 }
 
+void TcpAgent::opencwnd(int acked_num)
+{
+    double increment;
+    if (cwnd_ < ssthresh_) {
+        /* slow-start (exponential) */
+        cwnd_ += 1;
+    } else {
+        /* linear */
+
+            /* This is the standard algorithm. */
+            increment = increase_num_ / cwnd_;
+            // if ((last_cwnd_action_ == 0 ||
+            //   last_cwnd_action_ == CWND_ACTION_TIMEOUT) 
+            //   && max_ssthresh_ > 0) {
+            //  increment = limited_slow_start(cwnd_,
+            //    max_ssthresh_, increment);
+            // }
+            cwnd_ += increment*acked_num;
+            // printf("%lf---[%d.%d-%d.%d]: opencwnd increase_num_=%.2e cwnd_=%.2e increment=%.2e\n"
+            // ,Scheduler::instance().clock()
+            // ,here_.addr_,here_.port_
+            // ,dst_.addr_,dst_.port_
+            // ,increase_num_
+            // ,(double)cwnd_
+            // ,increment);
+#ifdef notdef
+            /*XXX*/
+            error("illegal window option %d", wnd_option_);
+#endif
+            abort();
+        }
+    // if maxcwnd_ is set (nonzero), make it the cwnd limit
+    if (maxcwnd_ && (int(cwnd_) > maxcwnd_))
+        cwnd_ = maxcwnd_;
+
+    return;
+}
+
 /*
  * open up the congestion window
  */

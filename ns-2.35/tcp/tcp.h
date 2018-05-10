@@ -285,6 +285,7 @@ protected:
 	virtual void dupack_action();		/* do this on dupacks */
 	virtual void send_one();		/* do this on 1-2 dupacks */
 	virtual void opencwnd();
+	virtual void opencwnd(int acked_num); // Add by CG
 
 	void slowdown(int how);			/* reduce cwnd/ssthresh */
 	void ecn(int seqno);		/* react to quench */
