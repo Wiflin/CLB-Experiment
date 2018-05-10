@@ -140,6 +140,9 @@ protected:
 	void				ca_free(unsigned);
 	struct ca_response*	ca_next();
 	struct ca_response*	ca_get(unsigned);	// DO NOT NEED TO ALLOC INSTANCE
+	//init
+	void vp_init();
+	void vp_burst(struct vp_record* vp);
 
 	// function s
 	// double calculate_rate(struct ca_response*, int);
@@ -249,6 +252,8 @@ protected:
 	void vpECE_debug();
 	void vpBurstSend_debug(Packet* p);
 	void vpBurstRecv_debug(Packet* p);
+	void vpBurst_debug(char* str);
+	
 };
 
 

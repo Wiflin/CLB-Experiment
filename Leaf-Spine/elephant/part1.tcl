@@ -78,7 +78,7 @@ puts "initializing links between servers and leaf(i) switches......"
 for {set i 0} {$i<$accessSwitchNumber} {incr i} {
 	for {set j 0} {$j<$leafDownPortNumber} {incr j} {
 		set k [expr $i*$leafDownPortNumber+$j]
-		$ns simplex-link $n($k) $sLeaf($i) 120G 0.00002s $queueManage
+		$ns simplex-link $n($k) $sLeaf($i) 120G 0.00002s "DropTail/CLBQueue"
 		$ns queue-limit $n($k) $sLeaf($i) $sendBufferSize
 		# $ns ecn-threshold $n($k) $sLeaf($i) [expr int($queueLeafSwitch*$ecnThresholdPortionLeaf)]
 		$ns ecn-threshold $n($k) $sLeaf($i) [expr int($sendBufferSize)]
@@ -379,7 +379,7 @@ for {set k 0} {$k<$flowNumber} {incr k} {
 
 		# $tcp($currentInsertingConnID) monitor-spare-window
 
-		# $tcp($currentInsertingConnID) monitor-Sequence
+		$tcp($currentInsertingConnID) monitor-Sequence
 		$tcp($currentInsertingConnID) monitor-Speed
 		# $tcpsink($currentInsertingConnID) monitor-Sequence
 

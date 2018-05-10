@@ -338,7 +338,7 @@ OBJ_CC = \
 	apps/pbc.o \
 	queue/cqrr.o queue/hcf.o apps/ftp-sink.o tools/lognormal.o tools/lognormal-sink.o tools/crc16.o apps/clb_tunnel.o apps/conga.o apps/clb_flow_classify.o\
 	link/dre.o \
-	clb/conga.o clb/clb.o clb/clb-processor.o\
+	clb/conga.o clb/clb.o clb/clb-processor.o clb/clb-queue.o \
 	$(OBJ_STL)
 
 

@@ -171,7 +171,6 @@ void Classifier::recv(Packet* p, Handler*h)
 	// 	return;
 	// }
 
-
 	////WF add
 	// record packet if conga flag is set in packet header
 	if (conga_enabled() == 1) 

@@ -4735,7 +4735,8 @@ trimthenstep6:
 					}
 					else
 					{
-						dupack_action(); // maybe fast rexmt
+						pipe_ -= maxseg_;
+						send_much(0, REASON_DUPACK, maxburst_); //Add by CG
 					}
 					
 					goto drop;
@@ -4783,6 +4784,8 @@ process_ACK:
                  * If there is more data to be acked, restart retransmit
                  * timer, using current (possibly backed-off) value.
                  */
+		int acked_num = (ackno-highest_ack_)/maxseg_; // add by CG
+
 		newack(pkt);	// handle timers, update highest_ack_
 
 		/*
@@ -4841,12 +4844,12 @@ process_ACK:
          		if(dctcp_)
          		{
          			if (!ect_ || !hdr_flags::access(pkt)->ecnecho() || ecn_burst_)
-         				opencwnd();
+         				opencwnd(acked_num); // fix opencwnd bug by CG
          		}
          		else
          		{
          			if (!ect_ || !hdr_flags::access(pkt)->ecnecho())
-         				opencwnd();
+         				opencwnd(acked_num); // fix opencwnd bug by CG
          		}
          	}
          }

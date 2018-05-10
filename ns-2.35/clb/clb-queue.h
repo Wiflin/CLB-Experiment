@@ -34,22 +34,34 @@
  * @(#) $Header: /cvsroot/nsnam/ns-2/queue/drop-tail.h,v 1.19 2004/10/28 23:35:37 haldar Exp $ (LBL)
  */
 
-#ifndef ns_drop_tail_h
-#define ns_drop_tail_h
+#ifndef clb_burst_queue_h
+#define clb_burst_queue_h
 
+#include <string>
 #include <string.h>
+#include <map>
 #include "queue.h"
 #include "config.h"
+#include "drop-tail.h"
+
+struct cmp_str
+{
+   bool operator()(char const *a, char const *b)
+   {
+      return strcmp(a, b) != 0;
+   }
+};
 
 /*
  * A bounded, drop-tail queue
  */
-class DropTail : public Queue {
+class CLBQueue : public DropTail {
   public:
-	DropTail() { 
+	CLBQueue() { 
 		q_ = new PacketQueue; 
-		qBurst_ = new PacketQueue;
 		pq_ = q_;
+		bqIt = bqMap.begin();
+		bqPos = 0;
 		
 		bind_bool("drop_front_", &drop_front_);
 		bind_bool("summarystats_", &summarystats);
@@ -57,7 +69,7 @@ class DropTail : public Queue {
 		bind("mean_pktsize_", &mean_pktsize_);
 		//		_RENAMED("drop-front_", "drop_front_");i
 	}
-	~DropTail() {
+	~CLBQueue() {
 		delete q_;
 	}
   protected:
@@ -68,7 +80,11 @@ class DropTail : public Queue {
 	void shrink_queue();	// To shrink queue and drop excessive packets.
 
 	PacketQueue *q_;	/* underlying FIFO queue */
-	PacketQueue *qBurst_;	/* store burst packets */
+	map < string, PacketQueue*>	bqMap;
+	map < string, PacketQueue*> :: iterator bqIt;
+	int bqPos;
+
+	// PacketQueue *qBurst_;	/* store burst packets */
 	int drop_front_;	/* drop-from-front (rather than from tail) */
 	int summarystats;
 	void print_summarystats();

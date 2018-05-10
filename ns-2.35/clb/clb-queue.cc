@@ -32,30 +32,26 @@
  * SUCH DAMAGE.
  */
 
-#ifndef lint
-static const char rcsid[] =
-    "@(#) $Header: /cvsroot/nsnam/ns-2/queue/drop-tail.cc,v 1.17 2004/10/28 23:35:37 haldar Exp $ (LBL)";
-#endif
 
-#include "drop-tail.h"
 #include "tcp.h"////CG add
 #include "flags.h"////CG add
+#include "clb-queue.h"
 
-static class DropTailClass : public TclClass {
+static class CLBQueueClass : public TclClass {
  public:
-	DropTailClass() : TclClass("Queue/DropTail") {}
+	CLBQueueClass() : TclClass("Queue/DropTail/CLBQueue") {}
 	TclObject* create(int, const char*const*) {
-		return (new DropTail);
+		return (new CLBQueue);
 	}
-} class_drop_tail;
+} class_clb_queue;
 
-void DropTail::reset()
+void CLBQueue::reset()
 {
-	Queue::reset();
+	DropTail::reset();
 }
 
 int 
-DropTail::command(int argc, const char*const* argv) 
+CLBQueue::command(int argc, const char*const* argv) 
 {
 	if (argc==2) {
 		if (strcmp(argv[1], "printstats") == 0) {
@@ -97,26 +93,42 @@ DropTail::command(int argc, const char*const* argv)
 /*
  * drop-tail
  */
-void DropTail::enque(Packet* p)
+void CLBQueue::enque(Packet* p)
 {
+
 	int qlimBytes = qlim_ * mean_pktsize_;
 	
 	if(hdr_cmn::access(p)->clb_row.burst_id > 0){
-		// if((ecn_threshold_>0) && ((qBurst_->length() + 1) >= ecn_threshold_))
-		// {
-		// //	printf("Tag ECN: length=%d,qib_=%d,qlim_=%d,qlimBytes=%d\n",q_->length(),qib_,qlim_,qlimBytes);
-		// 	hdr_flags* hf = hdr_flags::access(p);
-		// 	hf->ce() = 1;
-		// }
+		int dst = hdr_ip::access(p)->dst_.addr_;
+		int vp = hdr_cmn::access(p)->ecmpHashKey;
+		char dp[128];
+		sprintf(dp,"%d-%d",dst,vp);
+		string dstvp(dp);
 
-		// if ((!qib_ && (qBurst_->length() + 1) >= qlim_) ||
-		//   	(qib_ && (qBurst_->byteLength() + hdr_cmn::access(p)->size()) >= qlimBytes)){
-		// 	drop(p);
-		// } else 
+		map < string, PacketQueue*> :: iterator it = bqMap.find(dstvp);
+		if (it == bqMap.end())
 		{
-			qBurst_->enque(p);
+			bqMap[dstvp] = new PacketQueue;
+			// fprintf(stderr, "[CLBQueue] new pq %s\n", dstvp.c_str());
+		}
 
-			// fprintf(stderr, "[qBurst_] %lf %d-%d %d %d\n",
+		PacketQueue* bq_ = bqMap[dstvp];
+
+
+		if((ecn_threshold_>0) && ((bq_->length() + 1) >= ecn_threshold_))
+		{
+		//	printf("Tag ECN: length=%d,qib_=%d,qlim_=%d,qlimBytes=%d\n",q_->length(),qib_,qlim_,qlimBytes);
+			hdr_flags* hf = hdr_flags::access(p);
+			hf->ce() = 1;
+		}
+
+		if ((!qib_ && (bq_->length() + 1) >= qlim_) ||
+		  	(qib_ && (bq_->byteLength() + hdr_cmn::access(p)->size()) >= qlimBytes)){
+			drop(p);
+		} else {
+			bq_->enque(p);
+
+			// fprintf(stderr, "[bq_] %lf %d-%d %d %d\n",
 			// Scheduler::instance().clock(),
 			// hdr_ip::access(p)->src_.addr_,
 			// hdr_ip::access(p)->dst_.addr_,
@@ -167,9 +179,9 @@ void DropTail::enque(Packet* p)
 }
 
 //AG if queue size changes, we drop excessive packets...
-void DropTail::shrink_queue() 
+void CLBQueue::shrink_queue() 
 {
-        int qlimBytes = qlim_ * mean_pktsize_;
+    int qlimBytes = qlim_ * mean_pktsize_;
 	if (debug_)
 		printf("shrink-queue: time %5.2f qlen %d, qlim %d\n",
  			Scheduler::instance().clock(),
@@ -187,13 +199,36 @@ void DropTail::shrink_queue()
         }
 }
 
-Packet* DropTail::deque()
+Packet* CLBQueue::deque()
 {
-	if (qBurst_->length() > 0)
+	// PacketQueue* pq = 
+
+	map < string, PacketQueue*> :: iterator tmpIt = bqIt;
+
+	while (true)
 	{
-		Packet* pb=qBurst_->deque();
-		return pb;
+		if (bqIt == bqMap.end())
+			bqIt = bqMap.begin();
+
+		if (bqIt == bqMap.end())
+			break;
+
+		if (bqIt->second->length() > 0)
+		{
+			Packet* pb = (bqIt++)->second->deque();
+			return pb;
+		}
+		else
+		{
+			bqIt++;
+		}
+
+		if (bqIt == tmpIt)
+			break;
+
 	}
+
+
 
 	if (summarystats && &Scheduler::instance() != NULL) {
 		Queue::updateStats(qib_?q_->byteLength():q_->length());
@@ -206,7 +241,7 @@ Packet* DropTail::deque()
 	return p;
 }
 
-void DropTail::print_summarystats()
+void CLBQueue::print_summarystats()
 {
 	//double now = Scheduler::instance().clock();
         printf("True average queue: %5.3f", true_ave_);
