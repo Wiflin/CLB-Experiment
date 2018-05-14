@@ -38,6 +38,7 @@ static const char rcsid[] =
 #endif
 
 #include "queue.h"
+#include <ctime>
 #include <math.h>
 #include <stdio.h>
 
@@ -172,6 +173,9 @@ int Queue::command(int argc, const char*const* argv)
 
 void Queue::recv(Packet* p, Handler*)
 {
+	clock_t begin_time = clock();
+
+
 	printDelayTimeline(p);////CG add
 
 	printPathTrace(p);///WF add
@@ -216,7 +220,15 @@ void Queue::recv(Packet* p, Handler*)
 			target_->recv(p, &qh_);
 		}
 	}
-	
+
+
+	// clock_t end_time = clock();
+ //  	double elapsed_secs = double(end_time - begin_time) / CLOCKS_PER_SEC;
+ //  	char fn[100];
+ //  	sprintf(fn, "Queue-TR-%d-%d", last_hop, next_hop);
+ //  	FILE* time_rf = fopen(fn,"a+");
+	// fprintf(time_rf, "[Queue recv  elapse %lf]\n", elapsed_secs);
+	// fclose(time_rf);
 }
 
 void Queue::utilUpdate(double int_begin, double int_end, int link_state) {
@@ -294,6 +306,8 @@ void Queue::updateStats(int queuesize)
 
 void Queue::resume()
 {
+	// clock_t begin_time = clock();
+	
 	double now = Scheduler::instance().clock();
 	Packet* p = deque();
 	if (p != 0) {
@@ -310,6 +324,15 @@ void Queue::resume()
 			blocked_ = 1;
 		}
 	}
+
+
+	// clock_t end_time = clock();
+ //  	double elapsed_secs = double(end_time - begin_time) / CLOCKS_PER_SEC;
+ //  	char fn[100];
+ //  	sprintf(fn, "Queue-TR-%d-%d", last_hop, next_hop);
+ //  	FILE* time_rf = fopen(fn,"a+");
+	// fprintf(time_rf, "[Queue resume  elapse %lf]\n", elapsed_secs);
+	// fclose(time_rf);
 }
 
 void Queue::reset()

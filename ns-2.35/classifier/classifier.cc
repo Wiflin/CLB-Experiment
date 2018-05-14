@@ -60,9 +60,11 @@ public:
 Classifier::Classifier() : 
 	slot_(0), nslot_(0), maxslot_(-1), shift_(0), mask_(0xffffffff), nsize_(0)
 	, CLB_Node_(0), BlockSize_N_(0), BlockSize_P_(0), ifTunnel(0), bandwidth_(0)
-	, n_(NULL), conga_instance(NULL), clb_(NULL), clb_enabled(0)
+	, n_(NULL), conga_instance(NULL), clb_(NULL), clb_enabled(0), nodeID_(-1)
 {
 	default_target_ = 0;
+
+	sprintf(instance_name,"Null-Classifier");
 
 	bind("offset_", &offset_);
 	bind("shift_", &shift_);
@@ -163,6 +165,8 @@ int Classifier::getnxt(NsObject *nullagent)
  */
 void Classifier::recv(Packet* p, Handler*h)
 {
+
+	clock_t begin_time = clock();
 	// if (hdr_ip::access(p)->src_.port_ == 100)
 	// {
 	// 	hdr_cmn* cmnh = hdr_cmn::access(p);
@@ -200,7 +204,14 @@ void Classifier::recv(Packet* p, Handler*h)
 	if (clb_enabled == 1)
 	{
 		assert(clb_ != 0);
+
+		
+
 		int truncate = clb_->recv(p, h);
+
+
+		
+
 
 		if (truncate)
 		{
@@ -219,6 +230,13 @@ void Classifier::recv(Packet* p, Handler*h)
 	}
 
 
+	double end_time1 = double(clock() - begin_time) / CLOCKS_PER_SEC;
+	double end_time2 = 0;
+	NsObject* node_r = NULL;
+	char portr[100];
+	char mode[100];
+	memset(mode, 0, sizeof(mode));
+	memset(portr, 0, sizeof(portr));
 
 	/////CG add
 	if(CLB_Node_==1 && ifTunnel==0)
@@ -268,8 +286,45 @@ void Classifier::recv(Packet* p, Handler*h)
 	 		Packet::free(p);
 			return;
 		}
+
+
+		sprintf(portr, "(%d.%d-%d.%d)",
+		hdr_ip::access(p)->src().addr_,hdr_ip::access(p)->src().port_,
+		hdr_ip::access(p)->dst().addr_,hdr_ip::access(p)->dst().port_ );
+
+
+		if(hdr_ip::access(p)->src().addr_==this->nodeID())
+		{
+			sprintf(mode,"send");
+		}
+		else if(hdr_ip::access(p)->dst().addr_==this->nodeID())
+		{
+			sprintf(mode,"recv");
+		}
+		else
+		{
+			sprintf(mode,"pass");
+		}
+
+		end_time2 = double(clock() - begin_time) / CLOCKS_PER_SEC;
+		node_r = node;
+
+
+
 		node->recv(p,h);///original ends
 	}
+	
+	clock_t end_time = clock();
+
+
+
+	// char str2[128];
+	// sprintf(str2, "time-record-%d-%p.tr", (n_ != NULL ? n_->address() : nodeID_), this);
+	// FILE* time_rf = fopen(str2, "a+");
+ //  	double elapsed_secs = double(end_time - begin_time) / CLOCKS_PER_SEC;
+	// fprintf(time_rf, "[%s::recv elapse][%s]  %lf %lf %lf %lf %s next->%p\n", instance_name, mode, Scheduler::instance().clock(), 
+	// 	end_time1, end_time2, elapsed_secs,portr,node_r);
+	// fclose(time_rf);
 }
 
 /*

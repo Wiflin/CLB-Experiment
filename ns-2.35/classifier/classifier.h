@@ -96,6 +96,7 @@ public:
 	Conga* conga_(); 	//WF add
 
 protected:
+	char instance_name[40];
 	virtual int getnxt(NsObject *);
 	virtual int command(int argc, const char*const* argv);
 	void alloc(int);

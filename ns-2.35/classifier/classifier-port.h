@@ -57,6 +57,11 @@
 #include "classifier.h"
 
 class PortClassifier : public Classifier {
+public:
+	PortClassifier() : Classifier()
+	{
+		sprintf(instance_name,"Port-Classifier");
+	}
 protected:
 	int classify(Packet *p);
 // 	void clear(int slot);

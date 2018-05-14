@@ -130,7 +130,7 @@ for {set i 0} {$i<$accessSwitchNumber} {incr i} {
 			set queue2 [[$ns link  $sLeaf($i) $sSpine($k)] queue]
 			# $queue2 tag-timestamp
 			$queue2 monitor-QueueLen
-			$queue2 monitor-FlowPath
+			# $queue2 monitor-FlowPath
 			# $queue2 monitor-FlowSpeed
 			# $queue2 monitor-Drop
 			# $queue2 monitor-PathTrace

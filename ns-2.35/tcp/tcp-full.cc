@@ -4737,6 +4737,9 @@ trimthenstep6:
 					{
 						pipe_ -= maxseg_;
 						send_much(0, REASON_DUPACK, maxburst_); //Add by CG
+						printf("%lf\tdupacks_ < tcprexmtthresh\n",Scheduler::instance().clock());
+						fflush(stdout);
+						// dupack_action();
 					}
 					
 					goto drop;
@@ -4845,11 +4848,13 @@ process_ACK:
          		{
          			if (!ect_ || !hdr_flags::access(pkt)->ecnecho() || ecn_burst_)
          				opencwnd(acked_num); // fix opencwnd bug by CG
+         				// opencwnd();
          		}
          		else
          		{
          			if (!ect_ || !hdr_flags::access(pkt)->ecnecho())
          				opencwnd(acked_num); // fix opencwnd bug by CG
+         				// opencwnd();
          		}
          	}
          }

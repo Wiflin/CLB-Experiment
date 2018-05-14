@@ -23,7 +23,7 @@ set intialCwnd 100
 Agent/TCP/FullTcp/Sack set sack_rtx_cthresh_ 5000;
 Agent/TCP/FullTcp set tcprexmtthresh_ 5000
 Agent/TCP set IF_PRINT_SEQTIMELINE 1
-# Node set loadBalancePerPacket_ 1
+ Node set loadBalancePerPacket_ 1
 # Node set loadBalanceFlowlet_ 1
 
 
@@ -35,7 +35,7 @@ $ns set staticRoute_ 1
 for {set i 0} {$i<$serverNumber} {incr i} {
 	set n($i) [$ns node]
 	$n($i) enable-salt
-	[$n($i) entry] enable-clb
+#	[$n($i) entry] enable-clb
 
 	# puts [$n($i) entry]
 }

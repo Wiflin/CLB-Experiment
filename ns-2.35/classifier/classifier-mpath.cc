@@ -50,6 +50,7 @@ static const char rcsid[] =
 #endif
 
 #include "ip.h"
+#include <ctime>
 #include <math.h>
 #include <time.h>  
 #include "crc16.h"  ////CG add
@@ -70,6 +71,9 @@ public:
 
 
 MultiPathForwarder::MultiPathForwarder() : Classifier(), ns_(0) {
+
+	sprintf(instance_name,"Mpath-Classifier");
+
 	bind("fLayer_", &fLayer_);
 	bind("sLeaf_Conga_", &sLeaf_Conga_);
 	bind("nodeID_", &nodeID_);
@@ -84,6 +88,11 @@ MultiPathForwarder::MultiPathForwarder() : Classifier(), ns_(0) {
 
 int MultiPathForwarder::classify(Packet* p) {
 //CG add!
+
+	// clock_t begin_time = clock();
+	// int method = 0;
+
+
 	hdr_ip* iph = hdr_ip::access(p);
 	hdr_cmn* cmnh = hdr_cmn::access(p);
 	int key;
@@ -162,9 +171,32 @@ int MultiPathForwarder::classify(Packet* p) {
 	}
 	///CG add ends!
 
+	// char mode[100];
+	// if(hdr_ip::access(p)->src().addr_==this->nodeID())
+	// {
+	// 	sprintf(mode,"send");
+	// }
+	// else if(hdr_ip::access(p)->dst().addr_==this->nodeID())
+	// {
+	// 	sprintf(mode,"recv");
+	// }
+	// else
+	// {
+	// 	sprintf(mode,"pass");
+	// }
 
-		
-		
+	// char str2[128];
+	// sprintf(str2, "time-record-%d-%p", nodeID_,this);
+	// FILE* time_rf = fopen(str2, "a+");
+ //  	double elapsed_secs = double(clock() - begin_time) / CLOCKS_PER_SEC;
+	// fprintf(time_rf, "[mpath-classifier::recv elapse][%s]  %lf %lf method=%d (%d.%d-%d.%d)\n", mode, Scheduler::instance().clock(), 
+	// 	elapsed_secs, method,
+	// 	hdr_ip::access(p)->src().addr_,hdr_ip::access(p)->src().port_,
+	// 	hdr_ip::access(p)->dst().addr_,hdr_ip::access(p)->dst().port_);
+	// fclose(time_rf);	
+	
+
+
 	/*///original		
 		int fail = ns_;
 		do {
@@ -188,8 +220,20 @@ int MultiPathForwarder::mpath_route(Packet* p)
 
 	if(conga_enabled() == 1)
 		return conga_()->route(p, this);
-	else
-		return rand();
+	else {
+
+		int r = rand();
+
+		// char str[100];
+		// sprintf(str,"Mpath-Rand-%d.tr",nodeID_);
+		// FILE* fpRand = fopen(str,"a+");
+
+		// fprintf(fpRand, "%d %d\n", r, r%(maxslot_+1));
+
+		// fclose(fpRand);
+
+		return r;
+	}
 }
 
 //CG add

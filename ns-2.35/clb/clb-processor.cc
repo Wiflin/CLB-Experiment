@@ -44,6 +44,7 @@
  *
  */
 
+#include <ctime>
 #include <iostream>
 #include <math.h>
 #include <time.h>  
@@ -73,15 +74,15 @@
 #define PRE_RTT		((double)1.6E-4)
 #define T_REFRESH  	((double)5E-4)
 #define T_RTIME		((double)PRE_RTT * 40)
-#define T_RSSTIME	((double)PRE_RTT * 10)
+#define T_RSSTIME	((double)PRE_RTT * 200)
 #define T_RSSMAX	((double)PRE_RTT * 3000)
 #define T_VP_EXPIRE	((double)0.5)
 #define T_BURST_EXPIRE	((double)PRE_RTT * 15)
 #define RATE_ALPHA 	((double)1)
 #define FLY_ALPHA	((double)0.30)
-#define VP_SIZE		((int)8)	
+#define VP_SIZE		((int)3)	
 #define COST_EQUAL  ((double)1E-4)
-#define BURST_PKTCNT	((int)300)
+#define BURST_PKTCNT	((int)10)
 
 
 void CLBProcessorTimer::expire(Event *e)
@@ -116,6 +117,11 @@ CLBProcessor::CLBProcessor(Node* node, Classifier* classifier, CLB* clb, int src
 	sprintf(str1,"[constructor] %lf node=%d src=%d dst=%d",Scheduler::instance().clock(),n_->address(),src_,dst_);
 	flow_debug(str1,"Record");
 
+
+	// char str2[128];
+	// sprintf(str2, "time-record-%d", n_->address());
+	// time_rf = fopen(str2, "w");
+
 }
 
 
@@ -123,7 +129,8 @@ CLBProcessor::CLBProcessor(Node* node, Classifier* classifier, CLB* clb, int src
 int CLBProcessor::recv(Packet* p, Handler*h)
 {
 	
-
+	// clock_t begin_time = clock();
+	
 
 	if ((VP_Module | CA_Module) == 0)
 		return 0;
@@ -228,19 +235,24 @@ int CLBProcessor::recv(Packet* p, Handler*h)
 
 	ece_cnt += hdr_flags::access(p)->ecnecho();
 
+	// clock_t end_time = clock();
+ //  	double elapsed_secs = double(end_time - begin_time) / CLOCKS_PER_SEC;
+	// fprintf(time_rf, "[clb-processor recv  elapse %lf]\n", elapsed_secs);
+
 	return 0;
 }
 
 
 int CLBProcessor::send(Packet* p, Handler*h)
 {
-	vpcost_debug();
+	// clock_t begin_time = clock();
+	// vpcost_debug();
 	vpSendCnt_debug();
 	vpRecvCnt_debug();
-	vpSendNew_debug();
-	vpRecvNew_debug();
-	vpFlying_debug();
-	vpRate_debug();
+	// vpSendNew_debug();
+	// vpRecvNew_debug();
+	// vpFlying_debug();
+	// vpRate_debug();
 	vpRRate_debug();
 	ipECE_debug();
 	vpECE_debug();
@@ -313,6 +325,10 @@ int CLBProcessor::send(Packet* p, Handler*h)
 	// 	clb_hashkey,fly,vp->ca_row.rate,cost_,vp->ca_row.send_undefined,vp->ca_row.recv_undefined);
 	// flow_debug(str1,"Send");
 
+	// clock_t end_time = clock();
+ //  	double elapsed_secs = double(end_time - begin_time) / CLOCKS_PER_SEC;
+	// fprintf(time_rf, "[clb-processor send  elapse %lf]\n", elapsed_secs);
+
 	return 0;
 }
 
@@ -351,12 +367,12 @@ void CLBProcessor::expire(Event *e)
 
 struct vp_record* CLBProcessor::vp_alloc()
 {
-	unsigned hashkey = rand() % 65535;
+	// unsigned hashkey = rand() % 65535;
 
-	while (vp_map.find(hashkey) != vp_map.end())
-		hashkey = rand() % 65535;
+	// while (vp_map.find(hashkey) != vp_map.end())
+	// 	hashkey = rand() % 65535;
 
-	// unsigned hashkey = hashkey_counter ++;
+	unsigned hashkey = hashkey_counter ++;
 
 	struct vp_record*	vp = new struct vp_record();
 
@@ -377,11 +393,9 @@ struct vp_record* CLBProcessor::vp_alloc()
 
 void CLBProcessor::vp_free(unsigned hashkey) 
 {
-	char str1[128];
-	sprintf(str1,"[vp_free]\t%lf\t%8d",Scheduler::instance().clock(),hashkey);
-	flow_debug(str1,"Record");
 
-
+	clock_t begin_time = clock();
+	
 	map < unsigned, struct vp_record* > :: iterator it = vp_map.find(hashkey);
 	
 	if (it == vp_map.end())
@@ -391,6 +405,17 @@ void CLBProcessor::vp_free(unsigned hashkey)
 	delete vp;
 	vp = NULL;
 	vp_map.erase(it);
+
+
+
+	char str1[128];
+	sprintf(str1,"[vp_free]\t%lf\t%8d",Scheduler::instance().clock(),hashkey);
+	flow_debug(str1,"Record");
+
+  	clock_t end_time = clock();
+  	double elapsed_secs = double(end_time - begin_time) / CLOCKS_PER_SEC;
+	// fprintf(time_rf, "[vp_free elapse %lf]\n", elapsed_secs);
+
 }
 
 
@@ -994,6 +1019,7 @@ void CLBProcessor::vpsend_debug()
 	// hdr_ip* iph = hdr_ip::access(p);
 	// hdr_cmn* cmnh = hdr_cmn::access(p);
 
+    clock_t begin_time = clock();
 	
 
 	char str1[128];
@@ -1008,6 +1034,7 @@ void CLBProcessor::vpsend_debug()
     } 
 
 
+	
 
 
     map < unsigned, struct vp_record* > :: iterator it = vp_map.begin();
@@ -1033,14 +1060,22 @@ void CLBProcessor::vpsend_debug()
     	// 	it->second->hashkey, it->second->ca_row.rate, it->second->ca_row.flying);
     	fprintf(fpResult, "%u ",it->second->ca_row.send_undefined);
     }
-    fprintf(fpResult, "\n");
+
+
+    fprintf(fpResult,"\n");
 	fclose(fpResult);
+
+    clock_t end_time = clock();
+  	double elapsed_secs = double(end_time - begin_time) / CLOCKS_PER_SEC;
+
+  	// fprintf(time_rf,  "[vpsend elapse %lf]\n", elapsed_secs);
 
 }
 
 
 void CLBProcessor::vpcost_debug(int expire)
 {
+    clock_t begin_time = clock();
 	// hdr_ip* iph = hdr_ip::access(p);
 	// hdr_cmn* cmnh = hdr_cmn::access(p);
 
@@ -1056,7 +1091,6 @@ void CLBProcessor::vpcost_debug(int expire)
         return;
     	// return(TCL_ERROR);
     } 
-
 
 
 
@@ -1088,15 +1122,23 @@ void CLBProcessor::vpcost_debug(int expire)
     	// 	it->second->hashkey, it->second->ca_row.rate, it->second->ca_row.flying);
     	fprintf(fpResult, "%.11lf ",cost(&it->second->ca_row));
     }
-    fprintf(fpResult, "\n");
+
+
+  	fprintf(fpResult, "\n");
 	fclose(fpResult);
 
+
+    clock_t end_time = clock();
+  	double elapsed_secs = double(end_time - begin_time) / CLOCKS_PER_SEC;
+    
+    // fprintf(time_rf, "[vpcost_debug elapse %lf]\n", elapsed_secs);
 }
 
 
 
 void CLBProcessor::vpSendCnt_debug()
 {
+    clock_t begin_time = clock();
 	char str1[128];
 	memset(str1,0,128*sizeof(char));
 	sprintf(str1,"CLB/%d/VPSendCnt-%d.tr",src_,dst_);
@@ -1107,6 +1149,9 @@ void CLBProcessor::vpSendCnt_debug()
         return;
     	// return(TCL_ERROR);
     } 
+
+
+
 	map < unsigned, struct vp_record* > :: iterator it = vp_map.begin();
     fprintf(fpResult, "%lf ",Scheduler::instance().clock());
 
@@ -1114,13 +1159,20 @@ void CLBProcessor::vpSendCnt_debug()
     {
     	fprintf(fpResult, "%u ",it->second->ca_row.send_cnt);
     }
+    
     fprintf(fpResult, "\n");
 	fclose(fpResult);
+
+    clock_t end_time = clock();
+  	double elapsed_secs = double(end_time - begin_time) / CLOCKS_PER_SEC;
+    // fprintf(time_rf, "[vpSendCnt_debug elapse %lf]\n", elapsed_secs);
 }
 
 
 void CLBProcessor::vpRecvCnt_debug()
 {
+    clock_t begin_time = clock();
+
 	char str1[128];
 	memset(str1,0,128*sizeof(char));
 	sprintf(str1,"CLB/%d/VPRecvCnt-%d.tr",src_,dst_);
@@ -1131,6 +1183,10 @@ void CLBProcessor::vpRecvCnt_debug()
         return;
     	// return(TCL_ERROR);
     } 
+
+    
+
+
 	map < unsigned, struct vp_record* > :: iterator it = vp_map.begin();
     fprintf(fpResult, "%lf ",Scheduler::instance().clock());
 
@@ -1138,12 +1194,20 @@ void CLBProcessor::vpRecvCnt_debug()
     {
     	fprintf(fpResult, "%u ",it->second->ca_row.recv_cnt);
     }
+
     fprintf(fpResult, "\n");
 	fclose(fpResult);
+
+    clock_t end_time = clock();
+  	double elapsed_secs = double(end_time - begin_time) / CLOCKS_PER_SEC;
+    
+    // fprintf(time_rf, "[vpRecvCnt_debug elapse %lf]\n", elapsed_secs);
 }
 
 void CLBProcessor::vpSendNew_debug()
 {
+	clock_t begin_time = clock();
+	
 	char str1[128];
 	memset(str1,0,128*sizeof(char));
 	sprintf(str1,"CLB/%d/VPSend*-%d.tr",src_,dst_);
@@ -1163,11 +1227,19 @@ void CLBProcessor::vpSendNew_debug()
     }
     fprintf(fpResult, "\n");
 	fclose(fpResult);
+
+
+	clock_t end_time = clock();
+  	double elapsed_secs = double(end_time - begin_time) / CLOCKS_PER_SEC;
+    
+    // fprintf(time_rf, "[vpSendNew_debug elapse %lf]\n", elapsed_secs);
 }
 
 
 void CLBProcessor::vpRecvNew_debug()
 {
+    clock_t begin_time = clock();
+
 	char str1[128];
 	memset(str1,0,128*sizeof(char));
 	sprintf(str1,"CLB/%d/VPRecv*-%d.tr",src_,dst_);
@@ -1178,6 +1250,8 @@ void CLBProcessor::vpRecvNew_debug()
         return;
     	// return(TCL_ERROR);
     } 
+
+    
 	map < unsigned, struct vp_record* > :: iterator it = vp_map.begin();
     fprintf(fpResult, "%lf ",Scheduler::instance().clock());
 
@@ -1185,13 +1259,21 @@ void CLBProcessor::vpRecvNew_debug()
     {
     	fprintf(fpResult, "%d ",it->second->ca_row.recv_undefined);
     }
+    
     fprintf(fpResult, "\n");
 	fclose(fpResult);
+
+    clock_t end_time = clock();
+  	double elapsed_secs = double(end_time - begin_time) / CLOCKS_PER_SEC;
+    
+    // fprintf(time_rf, "[vpRecvNew_debug elapse %lf]\n", elapsed_secs);
 }
 
 
 void CLBProcessor::vpFlying_debug()
 {
+    clock_t begin_time = clock();
+
 	char str1[128];
 	memset(str1,0,128*sizeof(char));
 	sprintf(str1,"CLB/%d/VPFlying-%d.tr",src_,dst_);
@@ -1202,6 +1284,9 @@ void CLBProcessor::vpFlying_debug()
         return;
     	// return(TCL_ERROR);
     } 
+
+
+
 	map < unsigned, struct vp_record* > :: iterator it = vp_map.begin();
     fprintf(fpResult, "%lf ",Scheduler::instance().clock());
 
@@ -1209,13 +1294,21 @@ void CLBProcessor::vpFlying_debug()
     {
     	fprintf(fpResult, "%.11lf ",it->second->ca_row.flying);
     }
+    
     fprintf(fpResult, "\n");
 	fclose(fpResult);
+
+    clock_t end_time = clock();
+  	double elapsed_secs = double(end_time - begin_time) / CLOCKS_PER_SEC;
+    
+    // fprintf(time_rf, "[vpFlying_debug elapse %lf]\n", elapsed_secs);
 }
 
 
 void CLBProcessor::vpRate_debug()
 {
+	clock_t begin_time = clock();
+
 	char str1[128];
 	memset(str1,0,128*sizeof(char));
 	sprintf(str1,"CLB/%d/VPRate-%d.tr",src_,dst_);
@@ -1226,6 +1319,8 @@ void CLBProcessor::vpRate_debug()
         return;
     	// return(TCL_ERROR);
     } 
+
+
 	map < unsigned, struct vp_record* > :: iterator it = vp_map.begin();
     fprintf(fpResult, "%lf ",Scheduler::instance().clock());
 
@@ -1233,12 +1328,19 @@ void CLBProcessor::vpRate_debug()
     {
     	fprintf(fpResult, "%.11lf ",it->second->ca_row.rate);
     }
+    
     fprintf(fpResult, "\n");
 	fclose(fpResult);
+
+    clock_t end_time = clock();
+  	double elapsed_secs = double(end_time - begin_time) / CLOCKS_PER_SEC;
+    
+    // fprintf(time_rf, "[vpRate_debug elapse %lf] \n", elapsed_secs);
 }
 
 void CLBProcessor::vpRRate_debug()
 {
+    clock_t begin_time = clock();
 	char str1[128];
 	memset(str1,0,128*sizeof(char));
 	sprintf(str1,"CLB/%d/VPR_Rate-%d.tr",src_,dst_);
@@ -1249,6 +1351,8 @@ void CLBProcessor::vpRRate_debug()
         return;
     	// return(TCL_ERROR);
     } 
+
+
 	map < unsigned, struct vp_record* > :: iterator it = vp_map.begin();
     fprintf(fpResult, "%lf ",Scheduler::instance().clock());
 
@@ -1256,13 +1360,20 @@ void CLBProcessor::vpRRate_debug()
     {
     	fprintf(fpResult, "%.11lf ",it->second->ca_row.r_rate);
     }
+    
     fprintf(fpResult, "\n");
 	fclose(fpResult);
+
+    clock_t end_time = clock();
+  	double elapsed_secs = double(end_time - begin_time) / CLOCKS_PER_SEC;
+    
+    // fprintf(time_rf, "[vpRRate_debug elapse %lf]\n", elapsed_secs);
 }
 
 
 void CLBProcessor::ipECE_debug()
 {
+    clock_t begin_time = clock();
 	char str1[128];
 	memset(str1,0,128*sizeof(char));
 	sprintf(str1,"CLB/%d/IPECE-%d.tr",src_,dst_);
@@ -1277,12 +1388,20 @@ void CLBProcessor::ipECE_debug()
     fprintf(fpResult, "%lf %u\n", Scheduler::instance().clock(),ece_cnt);
 
 	fclose(fpResult);
+
+
+	clock_t end_time = clock();
+  	double elapsed_secs = double(end_time - begin_time) / CLOCKS_PER_SEC;
+    
+    // fprintf(time_rf, "[ipECE_debug elapse %lf]\n", elapsed_secs);
 }
 
 
 
 void CLBProcessor::vpECE_debug()
 {
+    clock_t begin_time = clock();
+
 	char str1[128];
 	memset(str1,0,128*sizeof(char));
 	sprintf(str1,"CLB/%d/VPECE-%d.tr",src_,dst_);
@@ -1293,6 +1412,9 @@ void CLBProcessor::vpECE_debug()
         return;
     	// return(TCL_ERROR);
     } 
+
+
+
 	map < unsigned, struct vp_record* > :: iterator it = vp_map.begin();
     fprintf(fpResult, "%lf ",Scheduler::instance().clock());
 
@@ -1300,8 +1422,14 @@ void CLBProcessor::vpECE_debug()
     {
     	fprintf(fpResult, "%u ",it->second->ca_row.recv_ece_cnt);
     }
+
     fprintf(fpResult, "\n");
 	fclose(fpResult);
+    
+    clock_t end_time = clock();
+  	double elapsed_secs = double(end_time - begin_time) / CLOCKS_PER_SEC;
+    
+    // fprintf(time_rf, "[vpECE_debug elapse %lf]\n",elapsed_secs);
 }
 
 

@@ -1191,6 +1191,8 @@ double TcpAgent::increase_param()
 
 void TcpAgent::opencwnd(int acked_num)
 {
+    // printf("%lf\tacked_num: %d\n",Scheduler::instance().clock(),acked_num);
+    fflush(stdout);
     double increment;
     if (cwnd_ < ssthresh_) {
         /* slow-start (exponential) */
@@ -1206,7 +1208,10 @@ void TcpAgent::opencwnd(int acked_num)
             //  increment = limited_slow_start(cwnd_,
             //    max_ssthresh_, increment);
             // }
-            cwnd_ += increment*acked_num;
+
+            cwnd_ += increment*acked_num; //Add by CG
+            // cwnd_ += increment; 
+
             // printf("%lf---[%d.%d-%d.%d]: opencwnd increase_num_=%.2e cwnd_=%.2e increment=%.2e\n"
             // ,Scheduler::instance().clock()
             // ,here_.addr_,here_.port_
@@ -1214,11 +1219,7 @@ void TcpAgent::opencwnd(int acked_num)
             // ,increase_num_
             // ,(double)cwnd_
             // ,increment);
-#ifdef notdef
-            /*XXX*/
-            error("illegal window option %d", wnd_option_);
-#endif
-            abort();
+            // fflush(stdout);
         }
     // if maxcwnd_ is set (nonzero), make it the cwnd limit
     if (maxcwnd_ && (int(cwnd_) > maxcwnd_))
@@ -2424,8 +2425,9 @@ void TcpAgent::printSeqTimeline(Packet* pkt)///CG add
     }
 
     hdr_cmn* cmnh = hdr_cmn::access(pkt);
+    hdr_flags *fh = hdr_flags::access(pkt); // flags (CWR, CE, bits)
     //// time sendSeq ackSeq uid cwnd
-    fprintf(fpSeqno,"%lf %d %d %d %d %.2f %.2f %.2e",
+    fprintf(fpSeqno,"%lf %d %d %d %d %.2f %.2f %.2e %d",
         Scheduler::instance().clock()
         ,tcph->seqno()
         ,tcph->ackno()
@@ -2434,6 +2436,7 @@ void TcpAgent::printSeqTimeline(Packet* pkt)///CG add
         ,(double) cwnd_
         ,(double) ssthresh_
         ,rtt_timeout()
+        ,fh->cwr()
         );
 
     if(cmnh->pInfo.ifRecovery==1)
