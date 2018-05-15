@@ -339,8 +339,8 @@ int CLBProcessor::send(Packet* p, Handler*h)
 	cmnh->clb_row.vp_recn = clb_recv_ecn;
 	cmnh->clb_row.response_en = 1;	// make no sense
 
-	double fly = vp->ca_row.flying + vp->ca_row.send_undefined - vp->ca_row.recv_undefined;
-	double cost_ = cost(&vp->ca_row);
+	// double fly = vp->ca_row.flying + vp->ca_row.send_undefined - vp->ca_row.recv_undefined;
+	// double cost_ = cost(&vp->ca_row);
 	// char str1[128];
 	// sprintf(str1,"[%lf send]\thashkey=%6u\t flying=%lf\t   rate=%4.2lf\t   cost=%4.2lf\t\t\t\t\tsend*=%u\trecv*=%d",Scheduler::instance().clock(),
 	// 	clb_hashkey,fly,vp->ca_row.rate,cost_,vp->ca_row.send_undefined,vp->ca_row.recv_undefined);
@@ -482,17 +482,21 @@ struct vp_record* CLBProcessor::vp_next_at_ratio()
 		}
 		else 
 		{
-			// if (vp_tmp->ca_row.r_rate < vp_tmp->ca_row.rate)
-			// 	continue;
+			if (fabs(vp_tmp->ca_row.r_rate - vp_tmp->ca_row.rate) < 1E-1)
+				continue;
 
-			// cfr = vp_tmp->ca_row.r_rate - vp_tmp->ca_row.rate;
-			// rate_cnt += cfr / 100;
+			cfr = vp_tmp->ca_row.r_rate - vp_tmp->ca_row.rate;
+			fprintf(stderr, "%lf\n", cfr);
+			fflush(stderr);
+			rate_cnt += cfr / 100;
 
-			rate_cnt += vp_tmp->ca_row.r_rate / 100;
+
+			// rate_cnt += vp_tmp->ca_row.r_rate / 100;
 		}
 
 	} 
 
+	fprintf(stderr, "rate_cnt=%lf", rate_cnt);
 	// char str1[128];
 	// sprintf(str1,"[clb-processor vp_next] %lf\thashkey=%d vpp=%p",Scheduler::instance().clock(),vp->hashkey,vp);
 	// flow_debug(str1);
@@ -500,11 +504,28 @@ struct vp_record* CLBProcessor::vp_next_at_ratio()
 	if (vp_tr.size() > 0)
 		vp = vp_tr[rand() % vp_tr.size()];
 
-	// else if(rate_cnt < 1)
+	else if(rate_cnt < 1)
+	{
+		int vp_cnt = vp_map.size();
+		int vp_choose = rand() % vp_cnt;
+		fprintf(stderr, "。vp_cnt=%d vp_choose=%d\n", vp_cnt, vp_choose);
+
+
+		map < unsigned, struct vp_record* > :: iterator it = vp_map.begin();
+
+		for ( ; it != vp_map.end(); it++, vp_choose --)
+		{
+			if (vp_choose == 0)
+				break;
+		}
+
+		vp = it->second;
+	}
 
 	else 
 	{
-		int rand_cnt = rand() % ((int) rate_cnt);
+		fprintf(stderr, "?\n");
+		double rand_cnt = (double)((int)rand() % ((int) rate_cnt));
 		struct vp_record* vp_tmp = NULL;
 
 		for ( it = vp_map.begin(); it != vp_map.end(); ++it)
@@ -514,15 +535,15 @@ struct vp_record* CLBProcessor::vp_next_at_ratio()
 
 		 	vp_tmp = it->second;
 			
-		 	// if (vp_tmp->ca_row.r_rate < vp_tmp->ca_row.rate)
-		 	// 	continue;
+		 	if (fabs(vp_tmp->ca_row.r_rate - vp_tmp->ca_row.rate) < 1E-1)
+		 		continue;
 
-		 	// cfr = vp_tmp->ca_row.r_rate - vp_tmp->ca_row.rate;
+		 	cfr = vp_tmp->ca_row.r_rate - vp_tmp->ca_row.rate;
 
-	 		// rand_cnt -= cfr / 100;
+	 		rand_cnt -= cfr / 100;
 
 
-			rand_cnt -= vp_tmp->ca_row.r_rate / 100;
+			// rand_cnt -= vp_tmp->ca_row.r_rate / 100;
 
 			if (rand_cnt <= 0) break;
 		} 
@@ -597,7 +618,9 @@ struct vp_record* CLBProcessor::vp_next_at_cost()
 
 struct vp_record* CLBProcessor::vp_next()
 {
-	return vp_next_at_ratio();
+	struct vp_record* vp = vp_next_at_ratio();
+	fprintf(stderr, "and it return. hashkey=%u vp=%p\n", vp->hashkey, vp);
+	return vp;
 }
 
 
@@ -771,6 +794,9 @@ void CLBProcessor::ca_record_recv(struct ca_record* ca, unsigned current_recv)
 {
 	int recv_undefined = current_recv - ca->recv_cnt;
 
+	if (recv_undefined < 0)
+		return;
+
 	ca->recv_undefined = recv_undefined;
 	ca->fresh_time = Scheduler::instance().clock();
 }
@@ -783,7 +809,7 @@ void CLBProcessor::vp_update_rrate(struct vp_record* vp, Packet* p)
 	double now = Scheduler::instance().clock();
 
 	if (hdr_cmn::access(p)->clb_row.vp_recn == true 
-		&& now - ca->r_time > T_RTIME
+		// && now - ca->r_time > T_RTIME
 		)
 	{
 
