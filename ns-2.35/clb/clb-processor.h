@@ -97,6 +97,7 @@ struct ca_response {
 	unsigned hashkey;
 	unsigned recv_cnt;
 	bool	 recv_ecn;
+	unsigned recv_ecn_cnt;
 	int 	 burst_pending;
 	int 	 burst_cnt;
 	double	 burst_time;
@@ -135,6 +136,8 @@ protected:
 	struct vp_record* 	vp_next_at_cost();
 	struct vp_record*	vp_next();	// SHOULD ALLOC INSTANCE IF IT'S NEEDED
 	struct vp_record*	vp_get(unsigned);	// DO NOT NEED TO ALLOC INSTANCE
+	struct vp_record*	vp_burst_get(struct vp_record* );
+
 	//congestion aware record reference
 	struct ca_response*	ca_alloc(unsigned);
 	void				ca_free(unsigned);
@@ -163,17 +166,26 @@ protected:
 	int 		src_;
 	int 		dst_;
 
+
+	// debug begin!
 	int flag;	// for debug
 	int cost_flag;	// for debug
 	unsigned hashkey_counter;
 	unsigned ece_cnt;
 	unsigned max_ece_cnt;
 	FILE* time_rf;
+	// debug end!
 
 	// just for fun?
+	double 				init_rrate;
 	unsigned			sequence;
 	struct ca_record	global_ca;
 	struct ca_response	global_response;
+
+	double 				burst_time;
+	bool 				burst_pending;	// if it is enable burst now
+	struct vp_record* 	burst_vp;
+	int 				burst_cnt;
 
 	// queue < vp_record** >		vp_queue;
 	map < unsigned, struct vp_record* >		vp_map;
@@ -214,7 +226,7 @@ protected:
 
 		// maybe change to current average of rate
 		ca_row->rate = init_rate();
-		ca_row->r_rate = 1E+37;
+		ca_row->r_rate = init_rrate;
 		ca_row->flying = 0;
 
 		ca_row->update_time = Scheduler::instance().clock();
@@ -254,6 +266,7 @@ protected:
 	void vpBurstSend_debug(Packet* p);
 	void vpBurstRecv_debug(Packet* p);
 	void vpBurst_debug(char* str);
+	void vpRecvEcnCnt_debug();
 	
 };
 

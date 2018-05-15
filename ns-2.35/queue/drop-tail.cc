@@ -101,31 +101,31 @@ void DropTail::enque(Packet* p)
 {
 	int qlimBytes = qlim_ * mean_pktsize_;
 	
-	if(hdr_cmn::access(p)->clb_row.burst_id > 0){
-		// if((ecn_threshold_>0) && ((qBurst_->length() + 1) >= ecn_threshold_))
-		// {
-		// //	printf("Tag ECN: length=%d,qib_=%d,qlim_=%d,qlimBytes=%d\n",q_->length(),qib_,qlim_,qlimBytes);
-		// 	hdr_flags* hf = hdr_flags::access(p);
-		// 	hf->ce() = 1;
-		// }
+	// if(hdr_cmn::access(p)->clb_row.burst_id > 0){
+	// 	// if((ecn_threshold_>0) && ((qBurst_->length() + 1) >= ecn_threshold_))
+	// 	// {
+	// 	// //	printf("Tag ECN: length=%d,qib_=%d,qlim_=%d,qlimBytes=%d\n",q_->length(),qib_,qlim_,qlimBytes);
+	// 	// 	hdr_flags* hf = hdr_flags::access(p);
+	// 	// 	hf->ce() = 1;
+	// 	// }
 
-		// if ((!qib_ && (qBurst_->length() + 1) >= qlim_) ||
-		//   	(qib_ && (qBurst_->byteLength() + hdr_cmn::access(p)->size()) >= qlimBytes)){
-		// 	drop(p);
-		// } else 
-		{
-			qBurst_->enque(p);
+	// 	// if ((!qib_ && (qBurst_->length() + 1) >= qlim_) ||
+	// 	//   	(qib_ && (qBurst_->byteLength() + hdr_cmn::access(p)->size()) >= qlimBytes)){
+	// 	// 	drop(p);
+	// 	// } else 
+	// 	{
+	// 		qBurst_->enque(p);
 
-			// fprintf(stderr, "[qBurst_] %lf %d-%d %d %d\n",
-			// Scheduler::instance().clock(),
-			// hdr_ip::access(p)->src_.addr_,
-			// hdr_ip::access(p)->dst_.addr_,
-			// hdr_cmn::access(p)->ecmpHashKey,
-			// hdr_cmn::access(p)->clb_row.burst_id);
-		}
+	// 		// fprintf(stderr, "[qBurst_] %lf %d-%d %d %d\n",
+	// 		// Scheduler::instance().clock(),
+	// 		// hdr_ip::access(p)->src_.addr_,
+	// 		// hdr_ip::access(p)->dst_.addr_,
+	// 		// hdr_cmn::access(p)->ecmpHashKey,
+	// 		// hdr_cmn::access(p)->clb_row.burst_id);
+	// 	}
 
-		return;
-	}
+	// 	return;
+	// }
 
 	//printf("last hop is %d\n",last_hop);
 	if (summarystats) {
@@ -141,6 +141,15 @@ void DropTail::enque(Packet* p)
 		hf->ce() = 1;
 	}
 	///CG add ends!
+
+	// WF add for clb test!
+	// if((ecn_threshold_>0) && ((q_->length() + 1) >= (ecn_threshold_ / 10)))
+	// {
+	// //	printf("Tag ECN: length=%d,qib_=%d,qlim_=%d,qlimBytes=%d\n",q_->length(),qib_,qlim_,qlimBytes);
+	// 	hdr_cmn::access(p)->clb_row.road_ecn = 1;
+	// }
+
+	// WF add end
 
 
 	// //CG add for not drop routing packets!
@@ -189,11 +198,11 @@ void DropTail::shrink_queue()
 
 Packet* DropTail::deque()
 {
-	if (qBurst_->length() > 0)
-	{
-		Packet* pb=qBurst_->deque();
-		return pb;
-	}
+	// if (qBurst_->length() > 0)
+	// {
+	// 	Packet* pb=qBurst_->deque();
+	// 	return pb;
+	// }
 
 	if (summarystats && &Scheduler::instance() != NULL) {
 		Queue::updateStats(qib_?q_->byteLength():q_->length());

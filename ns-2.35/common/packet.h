@@ -82,6 +82,8 @@ struct CLBRow
 	unsigned gen_id;
 	unsigned block_size;
 	unsigned burst_id;
+	bool road_ecn;	// just for test
+
 
 	// used by receiver to response for a route
 	bool response_en;
