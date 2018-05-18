@@ -72,15 +72,15 @@
 #define EC_Module 0
 
 #define PRE_RTT		((double)1.6E-4)
-#define T_REFRESH  	((double)5E-4)
+#define T_REFRESH  	((double)PRE_RTT)
 #define T_RTIME		((double)PRE_RTT * 5)
 #define T_RSSTIME	((double)PRE_RTT * 5)
 #define T_RSSMAX	((double)PRE_RTT * 3000)
 #define T_VP_EXPIRE	((double)0.5)
 #define T_BURST_EXPIRE	((double)PRE_RTT * 15)
-#define RATE_ALPHA 	((double)1)
+#define RATE_ALPHA 	((double)0.3)
 #define FLY_ALPHA	((double)0.30)
-#define VP_SIZE		((int)3)	
+// #define VP_SIZE		((int)3)	
 #define COST_EQUAL  ((double)1E-4)
 #define BURST_PKTCNT	((int)10)
 #define INIT_RRATE 	((double)830000)
@@ -91,8 +91,9 @@ void CLBProcessorTimer::expire(Event *e)
 }
 
 
-CLBProcessor::CLBProcessor(Node* node, Classifier* classifier, CLB* clb, int src, int dst)
- : n_(node), c_(classifier), clb_(clb), pt_(this), src_(src), dst_(dst), flag(0), cost_flag(0), hashkey_counter(0)
+CLBProcessor::CLBProcessor(Node* node, Classifier* classifier, CLB* clb, int src, int dst, int size)
+ : n_(node), c_(classifier), clb_(clb), pt_(this), src_(src), dst_(dst), VP_SIZE(size)
+ 	, flag(0), cost_flag(0), hashkey_counter(0)
  	, ece_cnt(0), max_ece_cnt(1), burst_pending(0), burst_vp(NULL)
 {
 	// srand(time(NULL));
@@ -496,7 +497,7 @@ struct vp_record* CLBProcessor::vp_next_at_ratio()
 
 	} 
 
-	fprintf(stderr, "rate_cnt=%lf", rate_cnt);
+	// fprintf(stderr, "rate_cnt=%lf", rate_cnt);
 	// char str1[128];
 	// sprintf(str1,"[clb-processor vp_next] %lf\thashkey=%d vpp=%p",Scheduler::instance().clock(),vp->hashkey,vp);
 	// flow_debug(str1);
@@ -508,7 +509,7 @@ struct vp_record* CLBProcessor::vp_next_at_ratio()
 	{
 		int vp_cnt = vp_map.size();
 		int vp_choose = rand() % vp_cnt;
-		fprintf(stderr, "。vp_cnt=%d vp_choose=%d\n", vp_cnt, vp_choose);
+		// fprintf(stderr, "。vp_cnt=%d vp_choose=%d\n", vp_cnt, vp_choose);
 
 
 		map < unsigned, struct vp_record* > :: iterator it = vp_map.begin();
@@ -524,7 +525,7 @@ struct vp_record* CLBProcessor::vp_next_at_ratio()
 
 	else 
 	{
-		fprintf(stderr, "?\n");
+		// fprintf(stderr, "?\n");
 		double rand_cnt = (double)((int)rand() % ((int) rate_cnt));
 		struct vp_record* vp_tmp = NULL;
 
@@ -619,7 +620,7 @@ struct vp_record* CLBProcessor::vp_next_at_cost()
 struct vp_record* CLBProcessor::vp_next()
 {
 	struct vp_record* vp = vp_next_at_ratio();
-	fprintf(stderr, "and it return. hashkey=%u vp=%p\n", vp->hashkey, vp);
+	// fprintf(stderr, "and it return. hashkey=%u vp=%p\n", vp->hashkey, vp);
 	return vp;
 }
 

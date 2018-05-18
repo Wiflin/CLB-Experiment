@@ -64,7 +64,7 @@
 
 
 
-CLB::CLB(Node* n, Classifier* c) : n_(n), c_(c)
+CLB::CLB(Node* n, Classifier* c, int size) : n_(n), c_(c), vp_size(size)
 {
 	mkdir("CLB",0777);
 	// system("exec rm -r -f CLB/*");
@@ -116,7 +116,7 @@ CLBProcessor* CLB::get_node_processor(int address)
 	if (it != node_table.end())
 		return it->second;
 
-	CLBProcessor* np = new CLBProcessor(n_, c_, this, n_->address(), address);
+	CLBProcessor* np = new CLBProcessor(n_, c_, this, n_->address(), address, vp_size);
 	// @todo do some setting
 
 	node_table[address] = np;

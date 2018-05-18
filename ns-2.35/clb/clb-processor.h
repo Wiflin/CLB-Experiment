@@ -119,7 +119,7 @@ protected:
 class CLBProcessor
 {
 public:
-	CLBProcessor(Node*, Classifier*, CLB*, int, int);
+	CLBProcessor(Node*, Classifier*, CLB*, int, int, int);
 	~CLBProcessor();
 
 	int recv(Packet* p, Handler*h);
@@ -165,6 +165,7 @@ protected:
 	CLBProcessorTimer pt_;
 	int 		src_;
 	int 		dst_;
+	int 		VP_SIZE;
 
 
 	// debug begin!

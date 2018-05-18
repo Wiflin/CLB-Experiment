@@ -373,24 +373,6 @@ int Classifier::command(int argc, const char*const* argv)
                         return (TCL_OK);
                 }
 
-                if (strcmp(argv[1], "enable-clb") == 0) {
-                        if (clb_enabled == 1 && clb_ != 0)
-                        	return (TCL_OK);
-
-                        if (n_ == 0) {
-                        	tcl.resultf("Classifier::%p instance did not attach to a node!", this);
-                        	return(TCL_ERROR);
-                        }
-                        
-                        clb_ = new CLB(n_, this);
-                        clb_enabled = 1;
-
-                        fprintf(stderr,"%lf-Node-%d: clb_=%p, clb_enabled_=%d initializing clb(%p,%p) \n"
-							,Scheduler::instance().clock(),n_->address(),clb_,clb_enabled,n_,this);
-						return TCL_OK;
-                }
-
-
     } else if (argc == 3) {
 		/*
 		 * $classifier alloc-port nullagent
@@ -478,6 +460,25 @@ int Classifier::command(int argc, const char*const* argv)
 			}
 			return TCL_OK;
 		}
+
+        if (strcmp(argv[1], "enable-clb") == 0) {
+            if (clb_enabled == 1 && clb_ != 0)
+            	return (TCL_OK);
+
+            if (n_ == 0) {
+            	tcl.resultf("Classifier::%p instance did not attach to a node!", this);
+            	return(TCL_ERROR);
+            }
+            
+
+            clb_ = new CLB(n_, this, atoi(argv[2]));
+            clb_enabled = 1;
+
+            fprintf(stderr,"%lf-Node-%d: clb_=%p, clb_enabled_=%d initializing clb(%p,%p) \n"
+				,Scheduler::instance().clock(),n_->address(),clb_,clb_enabled,n_,this);
+			return TCL_OK;
+        }
+        
 	} else if (argc == 4) {
 		/*
 		 * $classifier install $slot $node

@@ -67,7 +67,7 @@ class CLBProcessor;
 class CLB
 {
 public:
-	CLB(Node*, Classifier*);
+	CLB(Node*, Classifier*, int);
 	~CLB();
 
 	int recv(Packet* p, Handler*h);
@@ -90,6 +90,9 @@ private:
 
 	Node* 		n_;
 	Classifier* c_;
+	int 		vp_size;
+
+
 	int 		debug_;
 
 
