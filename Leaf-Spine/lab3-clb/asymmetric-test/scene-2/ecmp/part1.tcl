@@ -35,7 +35,7 @@ $ns set staticRoute_ 1
 for {set i 0} {$i<$serverNumber} {incr i} {
 	set n($i) [$ns node]
 	$n($i) enable-salt
-	[$n($i) entry] enable-clb $topSwitchNumber
+	# [$n($i) entry] enable-clb $topSwitchNumber
 
 	# puts [$n($i) entry]
 }
@@ -143,15 +143,15 @@ puts "initializing links between leaf(i) and spine switches......"
 set ecnThresholdPortion 0.3
 
 # 10G link
-set commonLinkRate 40G
-set commonQueueSpineSwitch 1600
-set commonQueueLeafSwitch 1600
+set commonLinkRate 70G
+set commonQueueSpineSwitch 2800
+set commonQueueLeafSwitch 2800
 
 
 # 1G link
-set badLinkRate 30G
-set badQueueSpineSwitch 1200
-set badQueueLeafSwitch 1200
+set badLinkRate 70G
+set badQueueSpineSwitch 2800
+set badQueueLeafSwitch 2800
 
 
 # 0 -> 0 bad link
