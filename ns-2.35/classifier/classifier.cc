@@ -47,6 +47,7 @@ static const char rcsid[] =
 #include "ip.h"	///CG add
 #include "clb/conga.h"	////WF add
 #include "clb/clb.h"	////WF add 
+#include "clb/clove.h"	////WF add 
 
 static class ClassifierClass : public TclClass {
 public:
@@ -60,7 +61,8 @@ public:
 Classifier::Classifier() : 
 	slot_(0), nslot_(0), maxslot_(-1), shift_(0), mask_(0xffffffff), nsize_(0)
 	, CLB_Node_(0), BlockSize_N_(0), BlockSize_P_(0), ifTunnel(0), bandwidth_(0)
-	, n_(NULL), conga_instance(NULL), clb_(NULL), clb_enabled(0), nodeID_(-1)
+	, n_(NULL), conga_instance(NULL), clb_(NULL), clb_enabled(0), clove_(0), clove_enabled(0)
+	, nodeID_(-1)
 {
 	default_target_ = 0;
 
@@ -227,6 +229,30 @@ void Classifier::recv(Packet* p, Handler*h)
 				nodeID_,Scheduler::instance().clock(),p->uid(),cmnh->clb_row.vp_id, cmnh->clb_row.vp_rid, cmnh->clb_row.burst_id);
 			return;
 		}
+	}
+
+
+	if (clove_enabled == 1)
+	{
+		assert(clove_ != 0);
+
+		int truncate = clove_->recv(p, h);
+
+		if (truncate)
+		{
+
+			Packet::free(p);
+			return;
+		}
+
+		if (hdr_ip::access(p)->src_.port_ == 100)
+		{
+			hdr_cmn* cmnh = hdr_cmn::access(p);
+			fprintf(stderr, "[clove-processor recv %d]%lf some packet(%u) uncaughted!  vp=%u vprid=%u burst_id=%u\n", 
+				nodeID_,Scheduler::instance().clock(),p->uid(),cmnh->clove_row.vp_id, cmnh->clove_row.vp_rid, cmnh->clove_row.burst_id);
+			return;
+		}
+
 	}
 
 
@@ -476,6 +502,25 @@ int Classifier::command(int argc, const char*const* argv)
 
             fprintf(stderr,"%lf-Node-%d: clb_=%p, clb_enabled_=%d initializing clb(%p,%p) \n"
 				,Scheduler::instance().clock(),n_->address(),clb_,clb_enabled,n_,this);
+			return TCL_OK;
+        }
+
+
+		if (strcmp(argv[1], "enable-clove") == 0) {
+            if (clove_enabled == 1 && clove_ != 0)
+            	return (TCL_OK);
+
+            if (n_ == 0) {
+            	tcl.resultf("Classifier::%p instance did not attach to a node!", this);
+            	return(TCL_ERROR);
+            }
+            
+
+            clove_ = new CLOVE(n_, this, atoi(argv[2]));
+            clove_enabled = 1;
+
+            fprintf(stderr,"%lf-Node-%d: clove_=%p, clove_enabled_=%d initializing clove(%p,%p) \n"
+				,Scheduler::instance().clock(),n_->address(),clove_,clove_enabled,n_,this);
 			return TCL_OK;
         }
         

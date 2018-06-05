@@ -47,6 +47,7 @@ class Packet;
 class Conga;
 class CLB;
 class CLBFlowClassifier;
+class CLOVE;
 
 class Classifier : public NsObject {
 public:
@@ -135,6 +136,10 @@ protected:
 	
 	int clb_enabled;	//clb flag
 	CLB* clb_; 		//CLB instance 
+
+
+	int clove_enabled;	//clove flag
+	CLOVE* clove_; 		//CLOVE instance 
 
 
 

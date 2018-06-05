@@ -97,6 +97,32 @@ struct CLBRow
 };
 
 
+struct CLOVERow
+{
+	// used by sender to receiver
+	bool record_en;
+	unsigned vp_id;
+	bool p_en;
+	unsigned p_index;
+	unsigned SN_HSN;
+	unsigned gen_id;
+	unsigned block_size;
+	unsigned burst_id;
+	bool road_ecn;	// just for test
+
+
+	// used by receiver to response for a route
+	bool response_en;
+	unsigned vp_rid;
+	unsigned vp_rcnt;
+	bool vp_recn;
+	double ecn_ratio;
+	double ecn_accratio;
+	double burst_rate;
+	// double burst_rid;
+};
+
+
 
 
 // Used by wireless routing code to attach routing agent
@@ -771,7 +797,7 @@ struct hdr_cmn {
 	struct CongaRow congaResponseRow;
 
 	struct CLBRow	clb_row;	////WF add for clb
-
+	struct CLOVERow	clove_row;	////WF add for clove
 
 	unsigned ecmpHashKey;///For ECMP routing
 	int flowID;
@@ -839,6 +865,7 @@ inline Packet* Packet::alloc()
 	memset(&(HDR_CMN(p))->congaRouteRow,0,sizeof(CongaRow));
 	memset(&(HDR_CMN(p))->congaResponseRow,0,sizeof(CongaRow));
 	memset(&(HDR_CMN(p))->clb_row,0,sizeof(CLBRow));
+	memset(&(HDR_CMN(p))->clove_row,0,sizeof(CLOVERow));
 	return (p);
 }
 
