@@ -72,6 +72,8 @@ struct ca_record
 	double	 flying;
 	double 	 rate;
 	int 	 r_rate;
+	int 	 weight;
+	int 	 current_weight;
 	double 	 fresh_time;
 	double	 update_time;
 	double	 r_time;	
@@ -198,59 +200,11 @@ protected:
 	map < unsigned, struct ca_response* >	ca_map;
 
 
-	inline double init_rate() {
-		// double irc = 1;
-		// unsigned vpcnt = 0;
-		// map < unsigned, struct vp_record* > :: iterator it = vp_map.begin();
-		
-		// for ( ; it != vp_map.end(); ++it)
-		// {
-		// 	if (it->second->ca_row.valid == 0)
-		// 		continue;
+	
 
-		// 	vpcnt += 1;
-		// 	irc += it->second->ca_row.rate;
-
-		// }
-		// return (vpcnt ? (irc / vpcnt) : irc);
-
-		return 1.0;
-	}
-
-	inline void init_vp_record(struct vp_record* vp) {
-		vp->hashkey = 0;
-		init_ca_record(&vp->ca_row);
-	}
-
-	inline void init_ca_record(struct ca_record* ca_row) {
-		ca_row->send_cnt = 0;
-		ca_row->recv_cnt = 0;
-		ca_row->send_undefined = 0;
-		ca_row->recv_undefined = 0;
-
-		// maybe change to current average of rate
-		ca_row->rate = init_rate();
-		ca_row->r_rate = init_rrate;
-		ca_row->flying = 0;
-
-		ca_row->update_time = Scheduler::instance().clock();
-		ca_row->fresh_time = Scheduler::instance().clock();
-		ca_row->r_time = Scheduler::instance().clock();
-		// ca_row->last_update_time = Scheduler::instance().clock();
-		ca_row->valid = 1;
-		ca_row->pending = 0;
-		ca_row->recv_ece_cnt = 0;
-	}
-
-	inline void init_ca_response(struct ca_response* ca) {
-		ca->hashkey = 0;
-		ca->recv_cnt = 0;
-		ca->recv_ecn = 0;
-		ca->burst_pending = 0;
-		ca->burst_cnt = 0;
-		ca->burst_time = Scheduler::instance().clock();
-		ca->time = Scheduler::instance().clock();
-	}
+	void init_vp_record(struct vp_record* vp);
+	void init_ca_record(struct ca_record* ca_row);
+	void init_ca_response(struct ca_response* ca);
 
 
 
@@ -263,14 +217,14 @@ protected:
 	// void vpSendNew_debug();
 	// void vpRecvNew_debug();
 	// void vpFlying_debug();
-	// void vpRate_debug();
-	// void vpRRate_debug();
+	void vpCWeight_debug();
+	void vpWeight_debug();
 	// void ipECE_debug();
 	// void vpECE_debug();
 	// void vpBurstSend_debug(Packet* p);
 	// void vpBurstRecv_debug(Packet* p);
 	// void vpBurst_debug(char* str);
-	// void vpRecvEcnCnt_debug();
+	void vpRecvEcnCnt_debug();
 	
 };
 

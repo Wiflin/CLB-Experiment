@@ -67,6 +67,8 @@
 // vp rrate reduce when received ecn 
 #define CLOVE_WR	((int)3)
 #define CLOVE_WI	((int)3)
+#define PRE_RTT		((double)1.6E-4)
+#define T_WEIGHT_E	((double)PRE_RTT * 3)
 
 // Virtual Path Module enabled/disabled
 #define VP_Module 1
@@ -75,7 +77,6 @@
 // Eraser Code Module enabled/disabled
 #define EC_Module 0
 
-#define PRE_RTT		((double)1.6E-4)
 #define T_REFRESH  	((double)PRE_RTT)
 #define T_RTIME		((double)PRE_RTT * 5)
 #define T_RSSTIME	((double)PRE_RTT * 5)
@@ -134,6 +135,46 @@ CLOVEProcessor::CLOVEProcessor(Node* node, Classifier* classifier, CLOVE* clove,
 }
 
 
+void CLOVEProcessor::init_vp_record(struct vp_record* vp) 
+{
+	vp->hashkey = 0;
+	init_ca_record(&vp->ca_row);
+}
+
+void CLOVEProcessor::init_ca_record(struct ca_record* ca_row) 
+{
+	ca_row->send_cnt = 0;
+	ca_row->recv_cnt = 0;
+	ca_row->send_undefined = 0;
+	ca_row->recv_undefined = 0;
+
+	// maybe change to current average of rate
+	ca_row->rate = 1;
+	ca_row->r_rate = init_rrate;
+	ca_row->weight = CLOVE_WI;
+	ca_row->current_weight = 0;
+	ca_row->flying = 0;
+
+	ca_row->update_time = Scheduler::instance().clock();
+	ca_row->fresh_time = Scheduler::instance().clock();
+	ca_row->r_time = Scheduler::instance().clock();
+	// ca_row->last_update_time = Scheduler::instance().clock();
+	ca_row->valid = 1;
+	ca_row->pending = 0;
+	ca_row->recv_ece_cnt = 0;
+}
+
+void CLOVEProcessor::init_ca_response(struct ca_response* ca) 
+{
+	ca->hashkey = 0;
+	ca->recv_cnt = 0;
+	ca->recv_ecn = 0;
+	ca->burst_pending = 0;
+	ca->burst_cnt = 0;
+	ca->burst_time = Scheduler::instance().clock();
+	ca->time = Scheduler::instance().clock();
+}
+
 
 int CLOVEProcessor::recv(Packet* p, Handler*h)
 {
@@ -143,7 +184,7 @@ int CLOVEProcessor::recv(Packet* p, Handler*h)
 	hdr_ip* iph = hdr_ip::access(p);
 	hdr_cmn* cmnh = hdr_cmn::access(p);
 
-
+	double now = Scheduler::instance().clock();
 
 	// if only CA_Module is enabled, the sender will 
 	// 1. update the global_ca_row as a sender
@@ -165,20 +206,23 @@ int CLOVEProcessor::recv(Packet* p, Handler*h)
 			// vp_ecn feedback
 			if (cmnh->clove_row.vp_recn == 1)
 			{
-				vp->r_rate -= (CLOVE_WI / CLOVE_WR);
-				vp->r_time = Scheduler::instance().clock();
+				if (vp->ca_row.weight > 0 && now - vp->ca_row.r_time > PRE_RTT)
+					vp->ca_row.weight -= 1;
+					// vp->ca_row.weight = 0;
+				vp->ca_row.r_time = now;
+				vp->ca_row.recv_ece_cnt += 1;
 			}
 
-			// tcp ecn feed back
-			if (hdr_flags::access(p)->ecnecho())
-			{
-				// ece_cnt += ;
-
-				ecn_truncate(p);				
-			}
+			
 		}
 	}
-
+	
+	// tcp ecn feed back
+	if (hdr_flags::access(p)->ecnecho())
+	{
+		ece_cnt += 1;
+		ecn_truncate(p);				
+	}
 
 	// work as a receiver
 
@@ -200,19 +244,14 @@ int CLOVEProcessor::recv(Packet* p, Handler*h)
 		response->recv_ecn = 1;
 	}
 
-	// debug!
-
-
-	// clock_t end_time = clock();
- //  	double elapsed_secs = double(end_time - begin_time) / CLOCKS_PER_SEC;
-	// fprintf(time_rf, "[clove-processor recv  elapse %lf]\n", elapsed_secs);
-
 	return 0;
 }
 
 
 int CLOVEProcessor::send(Packet* p, Handler*h)
 {
+
+	vpRecvEcnCnt_debug();
 
 	hdr_ip* iph = hdr_ip::access(p);
 	hdr_cmn* cmnh = hdr_cmn::access(p);
@@ -227,7 +266,6 @@ int CLOVEProcessor::send(Packet* p, Handler*h)
 	struct ca_response*	ca = NULL;
 
 	// VP
-
 	vp = vp_next();
 	clove_hashkey = vp->hashkey;
 
@@ -304,9 +342,9 @@ struct vp_record* CLOVEProcessor::vp_alloc()
 	vp_map[hashkey] = vp;
 
 
-	char str1[128];
-	sprintf(str1,"[vp_alloc]\t%lf\t%8d\t%p\t%lf\t%u",Scheduler::instance().clock(),hashkey,vp,cost(&vp->ca_row),vp->ca_row.recv_ece_cnt);
-	flow_debug(str1,"Record");
+	// char str1[128];
+	// sprintf(str1,"[vp_alloc]\t%lf\t%8d\t%p\t%lf\t%u",Scheduler::instance().clock(),hashkey,vp,cost(&vp->ca_row),vp->ca_row.recv_ece_cnt);
+	// flow_debug(str1,"Record");
 
 
 	return vp;
@@ -330,9 +368,9 @@ void CLOVEProcessor::vp_free(unsigned hashkey)
 
 
 
-	char str1[128];
-	sprintf(str1,"[vp_free]\t%lf\t%8d",Scheduler::instance().clock(),hashkey);
-	flow_debug(str1,"Record");
+	// char str1[128];
+	// sprintf(str1,"[vp_free]\t%lf\t%8d",Scheduler::instance().clock(),hashkey);
+	// flow_debug(str1,"Record");
 
   	clock_t end_time = clock();
   	double elapsed_secs = double(end_time - begin_time) / CLOCKS_PER_SEC;
@@ -514,9 +552,55 @@ void CLOVEProcessor::vp_free(unsigned hashkey)
 
 struct vp_record* CLOVEProcessor::vp_next()
 {
-	struct vp_record* vp = vp_next_at_ratio();
-	// fprintf(stderr, "and it return. hashkey=%u vp=%p\n", vp->hashkey, vp);
-	return vp;
+	double now = Scheduler::instance().clock();
+
+	struct vp_record* vp = NULL;
+	int total = 0;
+	int max_weight = -100000000;
+	struct vp_record* max_vp = NULL;
+
+	map < unsigned, struct vp_record* > :: iterator it = vp_map.begin();
+
+
+	for ( ; it != vp_map.end(); ++it )
+	{
+		struct ca_record* car = &it->second->ca_row;
+
+		// check age 
+		if (now - car->r_time > T_WEIGHT_E)
+		{
+			car->weight = CLOVE_WI;
+			car->r_time = now;
+
+			fprintf(stderr, "[clove-processor vp_next] vp weight refresh %d %d\n", it->second->hashkey, car->weight);
+		}
+
+		car->current_weight += car->weight;
+		total += car->weight;
+
+		if (car->current_weight > max_weight)
+		{
+			max_weight = car->current_weight;
+			max_vp = it->second;
+		}
+	}
+
+	if (max_vp == NULL)
+	{
+		fprintf(stderr, "[clove-processor vp_next] max_vp==NULL  DID NOT GET A VALID VP.\n");
+	}
+
+	// algorithm : smooth weight round robin
+	else
+	{
+		max_vp->ca_row.current_weight -= total;
+		fprintf(stderr, "[clove-processor vp_next] max_vp=%d  \n", max_vp->hashkey);
+	}
+
+	vpWeight_debug();
+	vpCWeight_debug();
+
+	return max_vp;
 }
 
 
@@ -667,7 +751,7 @@ bool CLOVEProcessor::ecn_truncate(Packet* p)
 
 	for ( ; it != vp_map.end(); ++it)
 	{
-		if (it->second->ca_row.r_rate == CLOVE_WI)
+		if (it->second->ca_row.weight == CLOVE_WI)
 		{
 			flag = 0;
 			break;
@@ -677,7 +761,7 @@ bool CLOVEProcessor::ecn_truncate(Packet* p)
 	if ( flag == 0 )
 	{
 		// truncate
-		hdr_flags::access(p)->ecnecho() = 1;
+		hdr_flags::access(p)->ecnecho() = 0;
 		return true;
 	}
 
@@ -1330,70 +1414,70 @@ bool CLOVEProcessor::ecn_truncate(Packet* p)
 // }
 
 
-// void CLOVEProcessor::vpRate_debug()
-// {
-// 	clock_t begin_time = clock();
+void CLOVEProcessor::vpCWeight_debug()
+{
+	clock_t begin_time = clock();
 
-// 	char str1[128];
-// 	memset(str1,0,128*sizeof(char));
-// 	sprintf(str1,"CLOVE/%d/VPRate-%d.tr",src_,dst_);
-// 	FILE* fpResult=fopen(str1,"a+");
-// 	if(fpResult==NULL)
-//     {
-//         fprintf(stderr,"Can't open file %s!\n",str1);
-//         return;
-//     	// return(TCL_ERROR);
-//     } 
+	char str1[128];
+	memset(str1,0,128*sizeof(char));
+	sprintf(str1,"CLOVE/%d/VPCWeight-%d.tr",src_,dst_);
+	FILE* fpResult=fopen(str1,"a+");
+	if(fpResult==NULL)
+    {
+        fprintf(stderr,"Can't open file %s!\n",str1);
+        return;
+    	// return(TCL_ERROR);
+    } 
 
 
-// 	map < unsigned, struct vp_record* > :: iterator it = vp_map.begin();
-//     fprintf(fpResult, "%lf ",Scheduler::instance().clock());
+	map < unsigned, struct vp_record* > :: iterator it = vp_map.begin();
+    fprintf(fpResult, "%lf ",Scheduler::instance().clock());
 
-//     for ( ; it != vp_map.end(); ++it)
-//     {
-//     	fprintf(fpResult, "%.11lf ",it->second->ca_row.rate);
-//     }
+    for ( ; it != vp_map.end(); ++it)
+    {
+    	fprintf(fpResult, "%d ",it->second->ca_row.current_weight);
+    }
     
-//     fprintf(fpResult, "\n");
-// 	fclose(fpResult);
+    fprintf(fpResult, "\n");
+	fclose(fpResult);
 
-//     clock_t end_time = clock();
-//   	double elapsed_secs = double(end_time - begin_time) / CLOCKS_PER_SEC;
+    clock_t end_time = clock();
+  	double elapsed_secs = double(end_time - begin_time) / CLOCKS_PER_SEC;
     
-//     // fprintf(time_rf, "[vpRate_debug elapse %lf] \n", elapsed_secs);
-// }
+    // fprintf(time_rf, "[vpRate_debug elapse %lf] \n", elapsed_secs);
+}
 
-// void CLOVEProcessor::vpRRate_debug()
-// {
-//     clock_t begin_time = clock();
-// 	char str1[128];
-// 	memset(str1,0,128*sizeof(char));
-// 	sprintf(str1,"CLOVE/%d/VPR_Rate-%d.tr",src_,dst_);
-// 	FILE* fpResult=fopen(str1,"a+");
-// 	if(fpResult==NULL)
-//     {
-//         fprintf(stderr,"Can't open file %s!\n",str1);
-//         return;
-//     	// return(TCL_ERROR);
-//     } 
+void CLOVEProcessor::vpWeight_debug()
+{
+    clock_t begin_time = clock();
+	char str1[128];
+	memset(str1,0,128*sizeof(char));
+	sprintf(str1,"CLOVE/%d/VPWeight-%d.tr",src_,dst_);
+	FILE* fpResult=fopen(str1,"a+");
+	if(fpResult==NULL)
+    {
+        fprintf(stderr,"Can't open file %s!\n",str1);
+        return;
+    	// return(TCL_ERROR);
+    } 
 
 
-// 	map < unsigned, struct vp_record* > :: iterator it = vp_map.begin();
-//     fprintf(fpResult, "%lf ",Scheduler::instance().clock());
+	map < unsigned, struct vp_record* > :: iterator it = vp_map.begin();
+    fprintf(fpResult, "%lf ",Scheduler::instance().clock());
 
-//     for ( ; it != vp_map.end(); ++it)
-//     {
-//     	fprintf(fpResult, "%.11lf ",it->second->ca_row.r_rate);
-//     }
+    for ( ; it != vp_map.end(); ++it)
+    {
+    	fprintf(fpResult, "%d ",it->second->ca_row.weight);
+    }
     
-//     fprintf(fpResult, "\n");
-// 	fclose(fpResult);
+    fprintf(fpResult, "\n");
+	fclose(fpResult);
 
-//     clock_t end_time = clock();
-//   	double elapsed_secs = double(end_time - begin_time) / CLOCKS_PER_SEC;
+    clock_t end_time = clock();
+  	double elapsed_secs = double(end_time - begin_time) / CLOCKS_PER_SEC;
     
-//     // fprintf(time_rf, "[vpRRate_debug elapse %lf]\n", elapsed_secs);
-// }
+    // fprintf(time_rf, "[vpRRate_debug elapse %lf]\n", elapsed_secs);
+}
 
 
 // void CLOVEProcessor::ipECE_debug()
@@ -1528,32 +1612,32 @@ bool CLOVEProcessor::ecn_truncate(Packet* p)
 // }
 
 
-// void CLOVEProcessor::vpRecvEcnCnt_debug()
-// {
-// 	char str1[128];
-// 	memset(str1,0,128*sizeof(char));
-// 	sprintf(str1,"CLOVE/%d/VPRecvEce-%d.tr",src_,dst_);
-// 	FILE* fpResult=fopen(str1,"a+");
-// 	if(fpResult==NULL)
-//     {
-//         fprintf(stderr,"Can't open file %s!\n",str1);
-//         return;
-//     	// return(TCL_ERROR);
-//     } 
+void CLOVEProcessor::vpRecvEcnCnt_debug()
+{
+	char str1[128];
+	memset(str1,0,128*sizeof(char));
+	sprintf(str1,"CLOVE/%d/VPRecvEce-%d.tr",src_,dst_);
+	FILE* fpResult=fopen(str1,"a+");
+	if(fpResult==NULL)
+    {
+        fprintf(stderr,"Can't open file %s!\n",str1);
+        return;
+    	// return(TCL_ERROR);
+    } 
 
 
 
-// 	map < unsigned, struct ca_response* > :: iterator it = ca_map.begin();
-//     fprintf(fpResult, "%lf ",Scheduler::instance().clock());
+	map < unsigned, struct vp_record* > :: iterator it = vp_map.begin();
+    fprintf(fpResult, "%lf ",Scheduler::instance().clock());
 
-//     for ( ; it != ca_map.end(); ++it)
-//     {
-//     	fprintf(fpResult, "%u ",it->second->recv_ecn_cnt);
-//     }
+    for ( ; it != vp_map.end(); ++it)
+    {
+    	fprintf(fpResult, "%u ",it->second->ca_row.recv_ece_cnt);
+    }
 
-//     fprintf(fpResult, "\n");
-// 	fclose(fpResult);
+    fprintf(fpResult, "\n");
+	fclose(fpResult);
     
     
-//     // fprintf(time_rf, "[vpECE_debug elapse %lf]\n",elapsed_secs);
-// }
+    // fprintf(time_rf, "[vpECE_debug elapse %lf]\n",elapsed_secs);
+}

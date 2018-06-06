@@ -8,6 +8,7 @@ clean() {
 	rm -rf PathTrace
 	rm -rf FlowSpeed
 	rm -rf CLB
+	rm -rf CLOVE
 	rm -rf TCPSpeed
 	rm -f InputFlow-BindFlowID*
 	rm -f InputFlow-FCT*
