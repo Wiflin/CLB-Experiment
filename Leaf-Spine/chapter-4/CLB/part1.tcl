@@ -35,8 +35,8 @@ $ns set staticRoute_ 1
 for {set i 0} {$i<$serverNumber} {incr i} {
 	set n($i) [$ns node]
 	$n($i) enable-salt
-	# [$n($i) entry] enable-clb $topSwitchNumber
-	[$n($i) entry] enable-clove $topSwitchNumber
+	[$n($i) entry] enable-clb $topSwitchNumber
+	# [$n($i) entry] enable-clove $topSwitchNumber
 	# puts [$n($i) entry]
 }
 # [$n(0) entry] enable-clb

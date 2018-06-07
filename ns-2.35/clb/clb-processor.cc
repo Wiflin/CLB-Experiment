@@ -185,8 +185,10 @@ int CLBProcessor::recv(Packet* p, Handler*h)
 		{
 			struct vp_record* vp = vp_get(cmnh->clb_row.vp_rid);
 
-			if (vp == 0)
-				fprintf(stderr, "[clb-processor recv] couldn't get vp_record instance!\n");
+			if (vp == 0) 
+			{
+				// fprintf(stderr, "[clb-processor recv] couldn't get vp_record instance!\n");
+			}
 			
 			else {
 				assert(vp->hashkey == cmnh->clb_row.vp_rid);
@@ -279,6 +281,7 @@ int CLBProcessor::send(Packet* p, Handler*h)
 	unsigned	clb_burst_id = 0;
 	unsigned	clb_recv_cnt = 0;
 	bool		clb_recv_ecn = 0;
+	bool 		clb_recv_en = 0;
 
 	struct vp_record*	vp = NULL;
 	struct ca_response*	ca = NULL;
@@ -326,6 +329,7 @@ int CLBProcessor::send(Packet* p, Handler*h)
 			clb_recv_cnt = ca->recv_cnt;
 			clb_recv_ecn = ca->recv_ecn;
 			ca->recv_ecn = 0;
+			clb_recv_en = 1;
 		}
 	}
 
@@ -338,7 +342,7 @@ int CLBProcessor::send(Packet* p, Handler*h)
 	cmnh->clb_row.vp_rid = clb_recv_vpid;
 	cmnh->clb_row.vp_rcnt = clb_recv_cnt;
 	cmnh->clb_row.vp_recn = clb_recv_ecn;
-	cmnh->clb_row.response_en = 1;	// make no sense
+	cmnh->clb_row.response_en = clb_recv_en;	// make no sense
 
 	// double fly = vp->ca_row.flying + vp->ca_row.send_undefined - vp->ca_row.recv_undefined;
 	// double cost_ = cost(&vp->ca_row);
@@ -487,8 +491,8 @@ struct vp_record* CLBProcessor::vp_next_at_ratio()
 				continue;
 
 			cfr = vp_tmp->ca_row.r_rate - vp_tmp->ca_row.rate;
-			fprintf(stderr, "%lf\n", cfr);
-			fflush(stderr);
+			// fprintf(stderr, "%lf\n", cfr);
+			// fflush(stderr);
 			rate_cnt += cfr / 100;
 
 
@@ -834,7 +838,7 @@ void CLBProcessor::vp_update_rrate(struct vp_record* vp, Packet* p)
 	{
 		struct vp_record* burst_cvp = vp_burst_get(vp);
 
-		fprintf(stderr, "%d %u ecn expire \n", n_->address(), burst_cvp->hashkey );
+		// fprintf(stderr, "%d %u ecn expire \n", n_->address(), burst_cvp->hashkey );
 
 		burst_pending = 1;
 		burst_vp = burst_cvp;

@@ -36,7 +36,7 @@ for {set i 0} {$i<$serverNumber} {incr i} {
 	set n($i) [$ns node]
 	$n($i) enable-salt
 	# [$n($i) entry] enable-clb $topSwitchNumber
-	[$n($i) entry] enable-clove $topSwitchNumber
+	# [$n($i) entry] enable-clove $topSwitchNumber
 	# puts [$n($i) entry]
 }
 # [$n(0) entry] enable-clb
@@ -46,6 +46,7 @@ for {set i 0} {$i<$serverNumber} {incr i} {
 for {set i 0} {$i<$accessSwitchNumber} {incr i} {
 	set sLeaf($i) [$ns node]
 	$sLeaf($i) enable-salt
+	$sLeaf($i) enable-conga $topSwitchNumber $leafDownPortNumber
 }
 
 # core layer

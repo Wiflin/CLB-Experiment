@@ -212,19 +212,20 @@ protected:
 	// void vpt_debug();
 	// void vpsend_debug();
 	// void vpcost_debug(int expire=0);
-	// void vpSendCnt_debug();
+	void vpSendCnt_debug();
 	// void vpRecvCnt_debug();
 	// void vpSendNew_debug();
 	// void vpRecvNew_debug();
 	// void vpFlying_debug();
 	void vpCWeight_debug();
 	void vpWeight_debug();
-	// void ipECE_debug();
+	void ipECE_debug();
 	// void vpECE_debug();
 	// void vpBurstSend_debug(Packet* p);
 	// void vpBurstRecv_debug(Packet* p);
 	// void vpBurst_debug(char* str);
 	void vpRecvEcnCnt_debug();
+	void vpCARecvEcnCnt_debug();
 	
 };
 

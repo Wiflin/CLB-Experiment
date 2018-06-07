@@ -224,9 +224,9 @@ void Classifier::recv(Packet* p, Handler*h)
 
 		if (hdr_ip::access(p)->src_.port_ == 100)
 		{
-			hdr_cmn* cmnh = hdr_cmn::access(p);
-			fprintf(stderr, "[clb-processor recv %d]%lf some packet(%u) uncaughted!  vp=%u vprid=%u burst_id=%u\n", 
-				nodeID_,Scheduler::instance().clock(),p->uid(),cmnh->clb_row.vp_id, cmnh->clb_row.vp_rid, cmnh->clb_row.burst_id);
+			// hdr_cmn* cmnh = hdr_cmn::access(p);
+			// fprintf(stderr, "[clb-processor recv %d]%lf some packet(%u) uncaughted!  vp=%u vprid=%u burst_id=%u\n", 
+			// 	nodeID_,Scheduler::instance().clock(),p->uid(),cmnh->clb_row.vp_id, cmnh->clb_row.vp_rid, cmnh->clb_row.burst_id);
 			return;
 		}
 	}

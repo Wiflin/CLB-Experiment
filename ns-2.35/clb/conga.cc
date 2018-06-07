@@ -80,7 +80,7 @@ int Conga::conga_enabled()
 // 3.set response route information
 int Conga::route(Packet* p, Classifier* c_) 
 {
-	fprintf(stderr,"[conga] %lf-Node-%d get in route()\n",Scheduler::instance().clock(),n_->nodeid() );
+	// fprintf(stderr,"[conga] %lf-Node-%d get in route()\n",Scheduler::instance().clock(),n_->nodeid() );
 	hdr_ip* iph = hdr_ip::access(p);
 	hdr_cmn* cmnh = hdr_cmn::access(p);
 	
@@ -108,11 +108,14 @@ int Conga::route(Packet* p, Classifier* c_)
 
 
 	}
-		fprintf(stderr,"[conga] %lf-Node-%d tmp.size=%d route=%d slots=%d  getting out route() \n"
-			,Scheduler::instance().clock(),n_->nodeid(),tmp.size(),r_,slots_);
+	
+		// fprintf(stderr,"[conga] %lf-Node-%d tmp.size=%d route=%d slots=%d  getting out route() \n"
+		// 	,Scheduler::instance().clock(),n_->nodeid(),tmp.size(),r_,slots_);
+	
 	if (r_ == -1)
 		r_ = rand() % slots_;
-		fprintf(stderr,"[conga] %lf-Node-%d route=%d slots=%d really out route() \n",Scheduler::instance().clock(),n_->nodeid(),r_,slots_ );
+	
+		// fprintf(stderr,"[conga] %lf-Node-%d route=%d slots=%d really out route() \n",Scheduler::instance().clock(),n_->nodeid(),r_,slots_ );
 
 
 	// 2.enable and set congaRow flag
@@ -166,7 +169,7 @@ int Conga::route(Packet* p, Classifier* c_)
 // 3.remove the flag from the packet header
 void Conga::recv(Packet* p, Classifier* c_)
 {
-	fprintf(stderr,"[conga] %lf-Node-%d get in route()\n",Scheduler::instance().clock(),n_->nodeid() );
+	// fprintf(stderr,"[conga] %lf-Node-%d get in route()\n",Scheduler::instance().clock(),n_->nodeid() );
 	hdr_ip* iph = hdr_ip::access(p);
 	hdr_cmn* cmnh = hdr_cmn::access(p);
 	struct CongaRow* route_row = &cmnh->congaRouteRow;
@@ -294,7 +297,7 @@ int Conga::route_queue(const char* r_, const char* q_)
 	int qid = atoi(r_);
 	Queue* q = (Queue*)TclObject::lookup(q_);
 	queueMap[qid] = q;
-	fprintf(stderr, "[conga] queue map %d %s\n", qid, q_);
+	// fprintf(stderr, "[conga] queue map %d %s\n", qid, q_);
 	return 0;
 }
 
