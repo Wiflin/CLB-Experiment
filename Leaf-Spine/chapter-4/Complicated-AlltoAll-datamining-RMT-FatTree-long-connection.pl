@@ -88,7 +88,8 @@ for(my $i=0;$i<$serverPerBiNetwork;$i++)
 }
 
 my @dst;
-open(fTraffic,">InputFlow-$hostInTotal-$flowNumber.tr");
+# open(fTraffic,">InputFlow-$hostInTotal-$flowNumber.tr");
+open(fTrafficRecord, ">InputFlow-$hostInTotal-$flowNumber-load-$load.tr");
 
 for(my $i=0;$i<$serverPerBiNetwork;$i++)
 {
@@ -100,9 +101,11 @@ for(my $i=0;$i<$serverPerBiNetwork;$i++)
 
 		my $interval = (0-$avgInterval) * log(rand());
 		$startTime[$i]=$startTime[$i]+$interval;
-		fTraffic->print("$i $dst[$i][$z] $startTime[$i] $size[$i][$z]\n");
+		# fTraffic->print("$i $dst[$i][$z] $startTime[$i] $size[$i][$z]\n");
+		fTrafficRecord->print("$i $dst[$i][$z] $startTime[$i] $size[$i][$z]\n");
 		# print "$src $dst $startTime $size[$i]\n";
 
 	}
 }
-close(fTraffic);
+# close(fTraffic);
+close(fTrafficRecord);
