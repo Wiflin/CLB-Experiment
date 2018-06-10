@@ -45,8 +45,8 @@
  */
 
 
-#ifndef clb_conga_h
-#define clb_conga_h
+#ifndef hermes_main_h
+#define hermes_main_h
 
 #include "ip.h"
 #include <math.h>
@@ -57,75 +57,49 @@
 
 
 
-class Node;
-class Queue;
-class Classifier;
 
-class Conga
+
+class Node;
+class Classifier;
+class HermesProcessor;
+
+
+class Hermes
 {
 public:
-	// Conga() : n_(0)
-	// 	, slots_(-1)
-	// 	, leafDownPortNumber(0)
-	// 	 {}
-	// Conga(int slots) : n_(0)
-	// 	, slots_(slots)
-	// 	, leafDownPortNumber(0)
-	// 	{}
-	Conga(Node* node, int slots, int leafDownPortNumber);
-	~Conga() {
-		// @todo need to free all table row
-	}
+	Hermes(Node*, Classifier*, int);
+	~Hermes();
 
-	int conga_enabled();
-	int route(Packet* p, Classifier* c_);
-	void recv(Packet* p, Classifier* c_);
+	int recv(Packet* p, Handler*h);
 
-
-	// for debug
-	int route_queue(const char* r_, const char* q_);
-	inline void route_debug_set(int flag) {
-		route_debug_ = flag;
-		if (route_debug_)
-		{
-			mkdir("CLB",0777);
-			system("exec rm -r -f CLB/*");
+	
+	inline void debug_set(int flag) {
+		debug_ = flag;
+		if (debug_) {
+			mkdir("Hermes",0777);
+			system("exec rm -r -f Hermes/*");
 		}
 	}
-	inline void all_pkts_debug_set(int flag) {
-		all_pkts_debug_ = flag;
-		if (all_pkts_debug_)
-		{
-			mkdir("CLB",0777);
-			system("exec rm -r -f CLB/*");
-		}
-	}
-	void packetPrint(Packet* p,Classifier* c,char* file_str,char* debug_str);
-	
-protected:
-	
-		
-	int serv2leaf(int dst); 
-	void route_debug(Packet* p, int r_);
-	void packet_debug(Packet* p, int r_);
 
-	Node* n_;
-	int slots_;
-	int leafDownPortNumber_;
-	int route_debug_;
-	int all_pkts_debug_;
+private:
+	int recv_proc(Packet* p, Handler*h);
+	int send_proc(Packet* p, Handler*h);
+	// void flow_debug(Packet* p, Handler*h, char* str="\0");
+	// void debug(char* str, char* file = "Hermes-Instance");
+	HermesProcessor* get_node_processor(int);
 
-	map < int, Queue* > queueMap;
-	map < int, int* > route_table_;
-	map < int, map < int, int > > response_table_;
+	Node* 		n_;
+	Classifier* c_;
+	int 		vp_size;
 
-	map < int, int* > route_count_;
-	
 
-	void RT_ALL_debug();
-	void RT_debug(int dst);
-	void RTC_debug(int dst);
+	int 		debug_;
+
+
+	map < int,HermesProcessor* > node_table;
+
 };
+
 
 
 #endif

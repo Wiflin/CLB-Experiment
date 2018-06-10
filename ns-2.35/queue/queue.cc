@@ -160,7 +160,7 @@ int Queue::command(int argc, const char*const* argv)
 		}
 		if (strcmp(argv[1], "monitor-FlowSpeed") == 0) { /////WF add
 			ifMoniterFlowSpeed_=1;
-			schedDelay = 1E-4;
+			schedDelay = 5E-4;
 			qFlowSize = lastFlowSize = 0;
 			mkdir("FlowSpeed",0777);
 			system("exec rm -r -f FlowSpeed/*");
@@ -551,23 +551,23 @@ void Queue::printFlowSpeed()
 	}
     
     double qSpeed = (double)(qFlowSize - lastFlowSize) / (schedDelay * 1000 * 1000) * 8;
-    fprintf(fpFlowSpeed, "%.lf\t", qSpeed);
+    fprintf(fpFlowSpeed, "%lf %.lf\t", Scheduler::instance().clock(), qSpeed);
     lastFlowSize = qFlowSize;
 
 
-    vector < flowInfo >::iterator it;
-	for(it = FlowTable.begin (); it != FlowTable.end (); ++it)
-	{
+ //    vector < flowInfo >::iterator it;
+	// for(it = FlowTable.begin (); it != FlowTable.end (); ++it)
+	// {
 		
-		double fSpeed = (double)(it->flowSize - it->lastSize) / (schedDelay * 1000 * 1000) * 8;
-		fprintf(fpFlowSpeed, "%d.%d-%d.%d-%u=%.lf\t" 
-			,it->srcAddr,it->srcPort
-			,it->dstAddr,it->dstPort
-			,it->hashkey
-			,fSpeed);
+	// 	double fSpeed = (double)(it->flowSize - it->lastSize) / (schedDelay * 1000 * 1000) * 8;
+	// 	fprintf(fpFlowSpeed, "%d.%d-%d.%d-%u=%.lf\t" 
+	// 		,it->srcAddr,it->srcPort
+	// 		,it->dstAddr,it->dstPort
+	// 		,it->hashkey
+	// 		,fSpeed);
 
-		it->lastSize = it->flowSize;
-	}
+	// 	it->lastSize = it->flowSize;
+	// }
 
     fprintf(fpFlowSpeed, "\n");
     fclose(fpFlowSpeed);

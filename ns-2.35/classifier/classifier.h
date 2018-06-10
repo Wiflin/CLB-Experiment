@@ -48,6 +48,7 @@ class Conga;
 class CLB;
 class CLBFlowClassifier;
 class CLOVE;
+class Hermes;
 
 class Classifier : public NsObject {
 public:
@@ -141,7 +142,8 @@ protected:
 	int clove_enabled;	//clove flag
 	CLOVE* clove_; 		//CLOVE instance 
 
-
+	int hermes_enabled;	//hermes flag
+	Hermes* hermes_; 		//Hermes instance 
 
 };
 

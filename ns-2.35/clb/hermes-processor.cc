@@ -62,11 +62,11 @@
 #include "queue.h"
 #include "ip.h"
 #include "flags.h"
-#include "clove-processor.h"
+#include "hermes-processor.h"
 
 // vp rrate reduce when received ecn 
-#define CLOVE_WR	((double)3)
-#define CLOVE_WI	((double)100)
+#define Hermes_WR	((double)3)
+#define Hermes_WI	((double)100)
 #define PRE_RTT		((double)1.6E-4)
 #define T_WEIGHT_EXPIRE	((double)PRE_RTT * 15)
 
@@ -90,14 +90,14 @@
 #define BURST_PKTCNT	((int)10)
 #define INIT_RRATE 	((double)830000)
 
-// void CLOVEProcessorTimer::expire(Event *e)
+// void HermesProcessorTimer::expire(Event *e)
 // {
 // 	a_->expire(e);
 // }
 
 
-CLOVEProcessor::CLOVEProcessor(Node* node, Classifier* classifier, CLOVE* clove, int src, int dst, int size)
- : n_(node), c_(classifier), clove_(clove)
+HermesProcessor::HermesProcessor(Node* node, Classifier* classifier, Hermes* hermes, int src, int dst, int size)
+ : n_(node), c_(classifier), hermes_(hermes)
  // , pt_(this)
  	, src_(src), dst_(dst), VP_SIZE(size)
  	, flag(0), cost_flag(0), hashkey_counter(0)
@@ -116,7 +116,7 @@ CLOVEProcessor::CLOVEProcessor(Node* node, Classifier* classifier, CLOVE* clove,
 	// pt_.sched(T_REFRESH);
 
 	stringstream dir; 
-	dir << "CLOVE/" << src_;
+	dir << "Hermes/" << src_;
 	mkdir(dir.str().c_str(),0777);
 
 
@@ -135,13 +135,13 @@ CLOVEProcessor::CLOVEProcessor(Node* node, Classifier* classifier, CLOVE* clove,
 }
 
 
-void CLOVEProcessor::init_vp_record(struct vp_record* vp) 
+void HermesProcessor::init_vp_record(struct vp_record* vp) 
 {
 	vp->hashkey = 0;
 	init_ca_record(&vp->ca_row);
 }
 
-void CLOVEProcessor::init_ca_record(struct ca_record* ca_row) 
+void HermesProcessor::init_ca_record(struct ca_record* ca_row) 
 {
 	ca_row->send_cnt = 0;
 	ca_row->recv_cnt = 0;
@@ -151,24 +151,27 @@ void CLOVEProcessor::init_ca_record(struct ca_record* ca_row)
 	// maybe change to current average of rate
 	ca_row->rate = 1;
 	ca_row->r_rate = init_rrate;
-	ca_row->weight = CLOVE_WI;
+	ca_row->weight = Hermes_WI;
 	ca_row->current_weight = 0;
 	ca_row->flying = 0;
 
 	ca_row->update_time = Scheduler::instance().clock();
 	ca_row->fresh_time = Scheduler::instance().clock();
 	ca_row->r_time = Scheduler::instance().clock();
+
+	ca_row->c_rtt = 0;
 	// ca_row->last_update_time = Scheduler::instance().clock();
 	ca_row->valid = 1;
 	ca_row->pending = 0;
 	ca_row->recv_ece_cnt = 0;
 }
 
-void CLOVEProcessor::init_ca_response(struct ca_response* ca) 
+void HermesProcessor::init_ca_response(struct ca_response* ca) 
 {
 	ca->hashkey = 0;
 	ca->recv_cnt = 0;
 	ca->recv_ecn = 0;
+	ca->recv_rtt = 0;
 	ca->burst_pending = 0;
 	ca->burst_cnt = 0;
 	ca->burst_time = Scheduler::instance().clock();
@@ -176,7 +179,7 @@ void CLOVEProcessor::init_ca_response(struct ca_response* ca)
 }
 
 
-int CLOVEProcessor::recv(Packet* p, Handler*h)
+int HermesProcessor::recv(Packet* p, Handler*h)
 {
 	
 
@@ -192,21 +195,21 @@ int CLOVEProcessor::recv(Packet* p, Handler*h)
 	// @cautious!	it make no sense when both module are enabled!
 
 
-	if (cmnh->clove_row.response_en == 1)
+	if (cmnh->hermes_row.response_en == 1)
 	{
-		struct vp_record* vp = vp_get(cmnh->clove_row.vp_rid);
+		struct vp_record* vp = vp_get(cmnh->hermes_row.vp_rid);
 
 		if (vp == 0)
-			fprintf(stderr, "[clove-processor recv] couldn't get vp_record instance!\n");
+			fprintf(stderr, "[hermes-processor recv] couldn't get vp_record instance!\n");
 		
 		else {
-			assert(vp->hashkey == cmnh->clove_row.vp_rid);
+			assert(vp->hashkey == cmnh->hermes_row.vp_rid);
 
 
 			// vp_ecn feedback
-			if (cmnh->clove_row.vp_recn == 1)
+			if (cmnh->hermes_row.vp_recn == 1)
 			{
-				if (vp->ca_row.weight > 1 && now - vp->ca_row.r_time > 3*PRE_RTT)
+				if (vp->ca_row.weight > 1 && now - vp->ca_row.r_time > 5*PRE_RTT)
 				{
 					vp->ca_row.weight -= (vp->ca_row.weight / 3);
 					// vp->ca_row.weight = 0;
@@ -214,6 +217,9 @@ int CLOVEProcessor::recv(Packet* p, Handler*h)
 				}
 				vp->ca_row.recv_ece_cnt += 1;
 			}
+
+			vp->ca_row.c_rtt = cmnh->hermes_row.vp_rtt;
+
 		}
 	}
 	
@@ -228,17 +234,19 @@ int CLOVEProcessor::recv(Packet* p, Handler*h)
 	}
 	// work as a receiver
 
-	// fprintf(stderr, "vpid = %d\n", cmnh->clove_row.vp_id);
-	struct ca_response* response = ca_get(cmnh->clove_row.vp_id);
+	// fprintf(stderr, "vpid = %d\n", cmnh->hermes_row.vp_id);
+	struct ca_response* response = ca_get(cmnh->hermes_row.vp_id);
 
 	if (response == 0)
-		response = ca_alloc(cmnh->clove_row.vp_id);
+		response = ca_alloc(cmnh->hermes_row.vp_id);
 
 	if (response == 0)
 	{
-		fprintf(stderr, "[clove-processor recv] couldn't get ca_response instance!\n");
+		fprintf(stderr, "[hermes-processor recv] couldn't get ca_response instance!\n");
 		return 0;
 	}
+
+	response->recv_rtt = Scheduler::instance().clock() - cmnh->hermes_row.vp_time;
 	
 	if (hdr_flags::access(p)->ce())
 	{
@@ -250,28 +258,31 @@ int CLOVEProcessor::recv(Packet* p, Handler*h)
 }
 
 
-int CLOVEProcessor::send(Packet* p, Handler*h)
+int HermesProcessor::send(Packet* p, Handler*h)
 {
 	vpCARecvEcnCnt_debug();
 	vpRecvEcnCnt_debug();
 	ipECE_debug();
 	vpSendCnt_debug();
+	vpRecvRTT_debug();
+	vpCARecvRTT_debug();
 
 	hdr_ip* iph = hdr_ip::access(p);
 	hdr_cmn* cmnh = hdr_cmn::access(p);
 
 
-	unsigned	clove_hashkey = 0;		// vp_id
-	unsigned	clove_recv_vpid = 0;	// vp_rid
-	bool		clove_recv_ecn = 0;		// vp_recn
-	bool 		clove_ren = 0;
+	unsigned	hermes_hashkey = 0;		// vp_id
+	unsigned	hermes_recv_vpid = 0;	// vp_rid
+	bool		hermes_recv_ecn = 0;		// vp_recn
+	bool 		hermes_ren = 0;
+	double 		hermes_recv_rtt = 0;
 
 	struct vp_record*	vp = NULL;
 	struct ca_response*	ca = NULL;
 
 	// VP
 	vp = vp_next();
-	clove_hashkey = vp->hashkey;
+	hermes_hashkey = vp->hashkey;
 
 	// record 
 	vp->ca_row.send_cnt += 1;
@@ -280,28 +291,31 @@ int CLOVEProcessor::send(Packet* p, Handler*h)
 	// response
 	if ((ca = ca_next()) != NULL)
 	{
-		clove_recv_vpid = ca->hashkey;
-		clove_recv_ecn = ca->recv_ecn;
+		hermes_recv_vpid = ca->hashkey;
+		hermes_recv_ecn = ca->recv_ecn;
+		hermes_recv_rtt = ca->recv_rtt;
 		ca->recv_ecn = 0;
-		clove_ren = 1;
+		hermes_ren = 1;
 	}
 	
 
-	cmnh->ecmpHashKey = clove_hashkey;
-	cmnh->clove_row.vp_id = clove_hashkey;	
-	cmnh->clove_row.record_en = 1;	// make no sense
+	cmnh->ecmpHashKey = hermes_hashkey;
+	cmnh->hermes_row.vp_id = hermes_hashkey;	
+	cmnh->hermes_row.vp_time = Scheduler::instance().clock();
+	cmnh->hermes_row.record_en = 1;	// make no sense
 
-	cmnh->clove_row.vp_rid = clove_recv_vpid;
-	cmnh->clove_row.vp_recn = clove_recv_ecn;
-	cmnh->clove_row.response_en = clove_ren;	
+	cmnh->hermes_row.vp_rid = hermes_recv_vpid;
+	cmnh->hermes_row.vp_recn = hermes_recv_ecn;
+	cmnh->hermes_row.vp_rtt = hermes_recv_rtt;
+	cmnh->hermes_row.response_en = hermes_ren;	
 
 	return 0;
 }
 
-// void CLOVEProcessor::expire(Event *e)
+// void HermesProcessor::expire(Event *e)
 // {	
-// 	// flow_debug("\n[clove-processor expire]\n","Send");
-// 	// flow_debug("\n[clove-processor expire]\n","Recv");
+// 	// flow_debug("\n[hermes-processor expire]\n","Send");
+// 	// flow_debug("\n[hermes-processor expire]\n","Recv");
 
 // 	// vpcost_debug(1);
 // 	// vpsend_debug();
@@ -331,7 +345,7 @@ int CLOVEProcessor::send(Packet* p, Handler*h)
 // 	pt_.resched(T_REFRESH);
 // }
 
-struct vp_record* CLOVEProcessor::vp_alloc()
+struct vp_record* HermesProcessor::vp_alloc()
 {
 	// unsigned hashkey = rand() % 65535;
 
@@ -357,7 +371,7 @@ struct vp_record* CLOVEProcessor::vp_alloc()
 }
 
 
-void CLOVEProcessor::vp_free(unsigned hashkey) 
+void HermesProcessor::vp_free(unsigned hashkey) 
 {
 
 	clock_t begin_time = clock();
@@ -385,7 +399,7 @@ void CLOVEProcessor::vp_free(unsigned hashkey)
 }
 
 
-// struct vp_record* CLOVEProcessor::vp_next_at_ratio()
+// struct vp_record* HermesProcessor::vp_next_at_ratio()
 // {
 // 	if (vp_map.size() < VP_SIZE)
 // 		return vp_alloc();
@@ -438,7 +452,7 @@ void CLOVEProcessor::vp_free(unsigned hashkey)
 
 // 	// fprintf(stderr, "rate_cnt=%lf", rate_cnt);
 // 	// char str1[128];
-// 	// sprintf(str1,"[clove-processor vp_next] %lf\thashkey=%d vpp=%p",Scheduler::instance().clock(),vp->hashkey,vp);
+// 	// sprintf(str1,"[hermes-processor vp_next] %lf\thashkey=%d vpp=%p",Scheduler::instance().clock(),vp->hashkey,vp);
 // 	// flow_debug(str1);
 
 // 	if (vp_tr.size() > 0)
@@ -497,14 +511,14 @@ void CLOVEProcessor::vp_free(unsigned hashkey)
 // 		return vp;
 
 	
-// 	fprintf(stderr, "[clove-processor vp_next] Could not find a vp_record! cost=%lf\tcnt=%d\tmap_size=%d\n",	
+// 	fprintf(stderr, "[hermes-processor vp_next] Could not find a vp_record! cost=%lf\tcnt=%d\tmap_size=%d\n",	
 // 		cost_min, vp_cnt, vp_map.size());
 
 // 	return NULL;
 
 // }
 
-// struct vp_record* CLOVEProcessor::vp_next_at_cost()
+// struct vp_record* HermesProcessor::vp_next_at_cost()
 // {
 // 	if (vp_map.size() < VP_SIZE)
 // 		return vp_alloc();
@@ -540,7 +554,7 @@ void CLOVEProcessor::vp_free(unsigned hashkey)
 // 	} 
 
 // 	// char str1[128];
-// 	// sprintf(str1,"[clove-processor vp_next] %lf\thashkey=%d vpp=%p",Scheduler::instance().clock(),vp->hashkey,vp);
+// 	// sprintf(str1,"[hermes-processor vp_next] %lf\thashkey=%d vpp=%p",Scheduler::instance().clock(),vp->hashkey,vp);
 // 	// flow_debug(str1);
 
 // 	if (vp_tr.size() > 0)
@@ -550,13 +564,13 @@ void CLOVEProcessor::vp_free(unsigned hashkey)
 // 		return vp;
 
 	
-// 	// fprintf(stderr, "[clove-processor vp_next] Could not find a vp_record! cost=%lf\tcnt=%d\tmap_size=%d\n",	
+// 	// fprintf(stderr, "[hermes-processor vp_next] Could not find a vp_record! cost=%lf\tcnt=%d\tmap_size=%d\n",	
 // 	// 	cost_min, vp_cnt, vp_map.size());
 
 // 	return NULL;
 // }
 
-struct vp_record* CLOVEProcessor::vp_next()
+struct vp_record* HermesProcessor::vp_next()
 {
 	double now = Scheduler::instance().clock();
 
@@ -573,12 +587,12 @@ struct vp_record* CLOVEProcessor::vp_next()
 		struct ca_record* car = &it->second->ca_row;
 
 		// check age 
-		// if (now - car->r_time > T_WEIGHT_EXPIRE && car->weight != CLOVE_WI)
+		// if (now - car->r_time > T_WEIGHT_EXPIRE && car->weight != Hermes_WI)
 		// {
-		// 	car->weight = CLOVE_WI;
+		// 	car->weight = Hermes_WI;
 		// 	// car->r_time = now;
 
-		// 	// fprintf(stderr, "[clove-processor vp_next] vp weight refresh %d %d\n", it->second->hashkey, car->weight);
+		// 	// fprintf(stderr, "[hermes-processor vp_next] vp weight refresh %d %d\n", it->second->hashkey, car->weight);
 		// }
 
 		car->current_weight += car->weight;
@@ -593,14 +607,14 @@ struct vp_record* CLOVEProcessor::vp_next()
 
 	if (max_vp == NULL)
 	{
-		fprintf(stderr, "[clove-processor vp_next] max_vp==NULL  DID NOT GET A VALID VP.\n");
+		fprintf(stderr, "[hermes-processor vp_next] max_vp==NULL  DID NOT GET A VALID VP.\n");
 	}
 
 	// algorithm : smooth weight round robin
 	else
 	{
 		max_vp->ca_row.current_weight -= total;
-		// fprintf(stderr, "[clove-processor vp_next] max_vp=%d  \n", max_vp->hashkey);
+		// fprintf(stderr, "[hermes-processor vp_next] max_vp=%d  \n", max_vp->hashkey);
 	}
 
 	vpWeight_debug();
@@ -610,7 +624,7 @@ struct vp_record* CLOVEProcessor::vp_next()
 }
 
 
-struct vp_record* CLOVEProcessor::vp_get(unsigned hashkey)
+struct vp_record* HermesProcessor::vp_get(unsigned hashkey)
 {
 	map < unsigned, struct vp_record* > :: iterator it = vp_map.find(hashkey);
 
@@ -621,7 +635,7 @@ struct vp_record* CLOVEProcessor::vp_get(unsigned hashkey)
 }
 
 
-// struct vp_record* CLOVEProcessor::vp_burst_get(struct vp_record* vp)
+// struct vp_record* HermesProcessor::vp_burst_get(struct vp_record* vp)
 // {
 // 	double expire_time = vp->ca_row.r_time;
 // 	struct vp_record* found = NULL;
@@ -642,7 +656,7 @@ struct vp_record* CLOVEProcessor::vp_get(unsigned hashkey)
 // 		return vp;
 // }
 
-struct ca_response* CLOVEProcessor::ca_alloc(unsigned hashkey) 
+struct ca_response* HermesProcessor::ca_alloc(unsigned hashkey) 
 {
 	struct ca_response* ca = new struct ca_response();
 
@@ -655,7 +669,7 @@ struct ca_response* CLOVEProcessor::ca_alloc(unsigned hashkey)
 	return ca;
 }
 
-void CLOVEProcessor::ca_free(unsigned hashkey) 
+void HermesProcessor::ca_free(unsigned hashkey) 
 {
 
 	map < unsigned, struct ca_response* > :: iterator it = ca_map.find(hashkey);
@@ -670,7 +684,7 @@ void CLOVEProcessor::ca_free(unsigned hashkey)
 }
 
 
-struct ca_response* CLOVEProcessor::ca_next()
+struct ca_response* HermesProcessor::ca_next()
 {
 	unsigned t = 0;
 	while (!ca_queue.empty())
@@ -693,14 +707,14 @@ struct ca_response* CLOVEProcessor::ca_next()
 	return NULL;
 }
 
-struct ca_response*	CLOVEProcessor::ca_get(unsigned hashkey)
+struct ca_response*	HermesProcessor::ca_get(unsigned hashkey)
 {
 	map < unsigned, struct ca_response* > :: iterator it = ca_map.find(hashkey);
 	return ( it == ca_map.end() ? NULL : it->second );
 }
 
 
-void CLOVEProcessor::vp_init()
+void HermesProcessor::vp_init()
 {
 	while (vp_map.size() < VP_SIZE)
 		vp_alloc();
@@ -716,7 +730,7 @@ void CLOVEProcessor::vp_init()
 }
 
 
-// void CLOVEProcessor::vp_burst(struct vp_record* vp)
+// void HermesProcessor::vp_burst(struct vp_record* vp)
 // {
 // 	struct ca_record* ca = &vp->ca_row;
 // 	double now = Scheduler::instance().clock();
@@ -725,8 +739,8 @@ void CLOVEProcessor::vp_init()
 // 	{
 
 // 		Packet* p = pkt_alloc();
-// 		hdr_cmn::access(p)->clove_row.burst_id = i;
-// 		hdr_cmn::access(p)->clove_row.vp_id = vp->hashkey;
+// 		hdr_cmn::access(p)->hermes_row.burst_id = i;
+// 		hdr_cmn::access(p)->hermes_row.vp_id = vp->hashkey;
 // 		hdr_cmn::access(p)->ecmpHashKey = vp->hashkey;
 // 		// vpBurstSend_debug(p);
 
@@ -750,14 +764,14 @@ void CLOVEProcessor::vp_init()
 
 
 
-bool CLOVEProcessor::ecn_truncate(Packet* p)
+bool HermesProcessor::ecn_truncate(Packet* p)
 {
 	int flag = 1;
 	map < unsigned, struct vp_record* > :: iterator it = vp_map.begin();
 
 	for ( ; it != vp_map.end(); ++it)
 	{
-		if (fabs(it->second->ca_row.weight - CLOVE_WI) < 1)
+		if (fabs(it->second->ca_row.weight - Hermes_WI) < 1)
 		{
 			flag = 0;
 			break;
@@ -777,7 +791,7 @@ bool CLOVEProcessor::ecn_truncate(Packet* p)
 
 // }
 
-// double CLOVEProcessor::cost(struct ca_record* ca)
+// double HermesProcessor::cost(struct ca_record* ca)
 // {
 // 	// @todo how to calculate it
 
@@ -792,7 +806,7 @@ bool CLOVEProcessor::ecn_truncate(Packet* p)
 
 
 // // send variable incr
-// void CLOVEProcessor::ca_record_send(struct ca_record* ca)
+// void HermesProcessor::ca_record_send(struct ca_record* ca)
 // {
 // 	// 1.update send_undefined
 // 	unsigned send_undefined = ca->send_undefined + 1;
@@ -802,7 +816,7 @@ bool CLOVEProcessor::ecn_truncate(Packet* p)
 
 // }
 
-// void CLOVEProcessor::ca_record_recv(struct ca_record* ca, unsigned current_recv)
+// void HermesProcessor::ca_record_recv(struct ca_record* ca, unsigned current_recv)
 // {
 // 	int recv_undefined = current_recv - ca->recv_cnt;
 
@@ -815,12 +829,12 @@ bool CLOVEProcessor::ecn_truncate(Packet* p)
 
 
 
-// void CLOVEProcessor::vp_update_rrate(struct vp_record* vp, Packet* p)
+// void HermesProcessor::vp_update_rrate(struct vp_record* vp, Packet* p)
 // {
 // 	struct ca_record* ca = &vp->ca_row;
 // 	double now = Scheduler::instance().clock();
 
-// 	if (hdr_cmn::access(p)->clove_row.vp_recn == true 
+// 	if (hdr_cmn::access(p)->hermes_row.vp_recn == true 
 // 		// && now - ca->r_time > T_RTIME
 // 		)
 // 	{
@@ -858,7 +872,7 @@ bool CLOVEProcessor::ecn_truncate(Packet* p)
 // }
 
 
-// void CLOVEProcessor::update_ca_record(struct ca_record* ca_row)
+// void HermesProcessor::update_ca_record(struct ca_record* ca_row)
 // {
 	
 // 	double now = Scheduler::instance().clock();
@@ -892,23 +906,23 @@ bool CLOVEProcessor::ecn_truncate(Packet* p)
 
 
 // when the processor recv a packet -> should update the ca_response as a receiver
-// void CLOVEProcessor::update_ca_response(struct ca_response* response, Packet* p)
+// void HermesProcessor::update_ca_response(struct ca_response* response, Packet* p)
 // {
 // 	response->recv_cnt += 1;
 // 	response->recv_ecn = (bool)hdr_flags::access(p)->ce() || 
-// 						 (bool)hdr_cmn::access(p)->clove_row.road_ecn;
+// 						 (bool)hdr_cmn::access(p)->hermes_row.road_ecn;
 // 	response->recv_ecn_cnt += response->recv_ecn;
 // 	response->time = Scheduler::instance().clock();
 
 // 	// char str1[128];
-// 	// sprintf(str1,"[clove-processor update_ca_response] %lf\t%p\trecv-cnt=%d",
+// 	// sprintf(str1,"[hermes-processor update_ca_response] %lf\t%p\trecv-cnt=%d",
 // 	// 	Scheduler::instance().clock(),response,response->recv_cnt);
 // 	// flow_debug(str1);
 
 // }
 
 
-// void CLOVEProcessor::update_ca_burst(struct ca_response* response, Packet* p)
+// void HermesProcessor::update_ca_burst(struct ca_response* response, Packet* p)
 // {
 // 	// vpBurstRecv_debug(p);
 
@@ -926,7 +940,7 @@ bool CLOVEProcessor::ecn_truncate(Packet* p)
 // 	response->burst_cnt ++;
 
 
-// 	if (hdr_cmn::access(p)->clove_row.burst_id == 1)
+// 	if (hdr_cmn::access(p)->hermes_row.burst_id == 1)
 // 	{
 // 		double delta_time = now - response->burst_time;
 // 		double r_rate = (double) response->burst_cnt / delta_time;
@@ -934,9 +948,9 @@ bool CLOVEProcessor::ecn_truncate(Packet* p)
 // 		Packet* rp = pkt_alloc();
 // 		struct hdr_cmn* cmnh = hdr_cmn::access(rp);
 		
-// 		cmnh->clove_row.response_en = 1;
-// 		cmnh->clove_row.vp_rid = response->hashkey;
-// 		cmnh->clove_row.burst_rate = r_rate;
+// 		cmnh->hermes_row.response_en = 1;
+// 		cmnh->hermes_row.vp_rid = response->hashkey;
+// 		cmnh->hermes_row.burst_rate = r_rate;
 
 // 		char debug[300];
 // 		sprintf(debug, "%lf %d-%d (vp %u) start=%lf cnt=%d time=%lf new_rate=%lf\n", now,
@@ -964,7 +978,7 @@ bool CLOVEProcessor::ecn_truncate(Packet* p)
 // }
 
 
-// Packet* CLOVEProcessor::pkt_alloc()
+// Packet* HermesProcessor::pkt_alloc()
 // {
 // 	Packet* p = Packet::alloc();
 
@@ -1023,14 +1037,14 @@ bool CLOVEProcessor::ecn_truncate(Packet* p)
 
 
 
-// void CLOVEProcessor::init_vp_record(struct vp_record* vp)
+// void HermesProcessor::init_vp_record(struct vp_record* vp)
 // {
 // 	vp->hashkey = rand();
 
 // 	init_ca_record(&vp->ca_row);
 // }
 
-// void CLOVEProcessor::init_ca_record(struct ca_record* ca_row)
+// void HermesProcessor::init_ca_record(struct ca_record* ca_row)
 // {
 // 	ca_row->send_cnt = 0;
 // 	ca_row->recv_cnt = 0;
@@ -1049,7 +1063,7 @@ bool CLOVEProcessor::ecn_truncate(Packet* p)
 // }
 
 
-// void CLOVEProcessor::init_ca_response(struct ca_response* ca)
+// void HermesProcessor::init_ca_response(struct ca_response* ca)
 // {
 // 	ca->hashkey = 0;
 // 	ca->recv_cnt = 0;
@@ -1058,14 +1072,14 @@ bool CLOVEProcessor::ecn_truncate(Packet* p)
 
 
 
-// void CLOVEProcessor::flow_debug(char* str, char* file, Packet* p)
+// void HermesProcessor::flow_debug(char* str, char* file, Packet* p)
 // {
 // 	// hdr_ip* iph = hdr_ip::access(p);
 // 	// hdr_cmn* cmnh = hdr_cmn::access(p);
 
 // 	char str1[128];
 // 	memset(str1,0,128*sizeof(char));
-// 	sprintf(str1,"CLOVE/%d/%s-%d.tr", src_, file, dst_);
+// 	sprintf(str1,"Hermes/%d/%s-%d.tr", src_, file, dst_);
 // 	FILE* fpResult=fopen(str1,"a+");
 // 	if(fpResult==NULL)
 //     {
@@ -1079,7 +1093,7 @@ bool CLOVEProcessor::ecn_truncate(Packet* p)
 // }
 
 
-// void CLOVEProcessor::vpt_debug()
+// void HermesProcessor::vpt_debug()
 // {
 // 	// hdr_ip* iph = hdr_ip::access(p);
 // 	// hdr_cmn* cmnh = hdr_cmn::access(p);
@@ -1087,11 +1101,11 @@ bool CLOVEProcessor::ecn_truncate(Packet* p)
 
 // 	char str1[128];
 // 	memset(str1,0,128*sizeof(char));
-// 	sprintf(str1,"CLOVE/%d/VPT-%d.tr",src_,dst_);
+// 	sprintf(str1,"Hermes/%d/VPT-%d.tr",src_,dst_);
 // 	FILE* fpResult=fopen(str1,"a+");
 // 	if(fpResult==NULL)
 //     {
-//         fprintf(stderr,"Can't open file %s!\n","CLOVE/route_debug.tr");
+//         fprintf(stderr,"Can't open file %s!\n","Hermes/route_debug.tr");
 //         return;
 //     	// return(TCL_ERROR);
 //     } 
@@ -1129,7 +1143,7 @@ bool CLOVEProcessor::ecn_truncate(Packet* p)
 
 
 
-// void CLOVEProcessor::vpsend_debug()
+// void HermesProcessor::vpsend_debug()
 // {
 // 	// hdr_ip* iph = hdr_ip::access(p);
 // 	// hdr_cmn* cmnh = hdr_cmn::access(p);
@@ -1139,7 +1153,7 @@ bool CLOVEProcessor::ecn_truncate(Packet* p)
 
 // 	char str1[128];
 // 	memset(str1,0,128*sizeof(char));
-// 	sprintf(str1,"CLOVE/%d/VPSend-%d.tr",src_,dst_);
+// 	sprintf(str1,"Hermes/%d/VPSend-%d.tr",src_,dst_);
 // 	FILE* fpResult=fopen(str1,"a+");
 // 	if(fpResult==NULL)
 //     {
@@ -1188,7 +1202,7 @@ bool CLOVEProcessor::ecn_truncate(Packet* p)
 // }
 
 
-// void CLOVEProcessor::vpcost_debug(int expire)
+// void HermesProcessor::vpcost_debug(int expire)
 // {
 //     clock_t begin_time = clock();
 // 	// hdr_ip* iph = hdr_ip::access(p);
@@ -1198,7 +1212,7 @@ bool CLOVEProcessor::ecn_truncate(Packet* p)
 
 // 	char str1[128];
 // 	memset(str1,0,128*sizeof(char));
-// 	sprintf(str1,"CLOVE/%d/VPCost-%d.tr",src_,dst_);
+// 	sprintf(str1,"Hermes/%d/VPCost-%d.tr",src_,dst_);
 // 	FILE* fpResult=fopen(str1,"a+");
 // 	if(fpResult==NULL)
 //     {
@@ -1251,12 +1265,12 @@ bool CLOVEProcessor::ecn_truncate(Packet* p)
 
 
 
-void CLOVEProcessor::vpSendCnt_debug()
+void HermesProcessor::vpSendCnt_debug()
 {
     clock_t begin_time = clock();
 	char str1[128];
 	memset(str1,0,128*sizeof(char));
-	sprintf(str1,"CLOVE/%d/VPSendCnt-%d.tr",src_,dst_);
+	sprintf(str1,"Hermes/%d/VPSendCnt-%d.tr",src_,dst_);
 	FILE* fpResult=fopen(str1,"a+");
 	if(fpResult==NULL)
     {
@@ -1284,13 +1298,13 @@ void CLOVEProcessor::vpSendCnt_debug()
 }
 
 
-// void CLOVEProcessor::vpRecvCnt_debug()
+// void HermesProcessor::vpRecvCnt_debug()
 // {
 //     clock_t begin_time = clock();
 
 // 	char str1[128];
 // 	memset(str1,0,128*sizeof(char));
-// 	sprintf(str1,"CLOVE/%d/VPRecvCnt-%d.tr",src_,dst_);
+// 	sprintf(str1,"Hermes/%d/VPRecvCnt-%d.tr",src_,dst_);
 // 	FILE* fpResult=fopen(str1,"a+");
 // 	if(fpResult==NULL)
 //     {
@@ -1319,13 +1333,13 @@ void CLOVEProcessor::vpSendCnt_debug()
 //     // fprintf(time_rf, "[vpRecvCnt_debug elapse %lf]\n", elapsed_secs);
 // }
 
-// void CLOVEProcessor::vpSendNew_debug()
+// void HermesProcessor::vpSendNew_debug()
 // {
 // 	clock_t begin_time = clock();
 	
 // 	char str1[128];
 // 	memset(str1,0,128*sizeof(char));
-// 	sprintf(str1,"CLOVE/%d/VPSend*-%d.tr",src_,dst_);
+// 	sprintf(str1,"Hermes/%d/VPSend*-%d.tr",src_,dst_);
 // 	FILE* fpResult=fopen(str1,"a+");
 // 	if(fpResult==NULL)
 //     {
@@ -1351,13 +1365,13 @@ void CLOVEProcessor::vpSendCnt_debug()
 // }
 
 
-// void CLOVEProcessor::vpRecvNew_debug()
+// void HermesProcessor::vpRecvNew_debug()
 // {
 //     clock_t begin_time = clock();
 
 // 	char str1[128];
 // 	memset(str1,0,128*sizeof(char));
-// 	sprintf(str1,"CLOVE/%d/VPRecv*-%d.tr",src_,dst_);
+// 	sprintf(str1,"Hermes/%d/VPRecv*-%d.tr",src_,dst_);
 // 	FILE* fpResult=fopen(str1,"a+");
 // 	if(fpResult==NULL)
 //     {
@@ -1385,13 +1399,13 @@ void CLOVEProcessor::vpSendCnt_debug()
 // }
 
 
-// void CLOVEProcessor::vpFlying_debug()
+// void HermesProcessor::vpFlying_debug()
 // {
 //     clock_t begin_time = clock();
 
 // 	char str1[128];
 // 	memset(str1,0,128*sizeof(char));
-// 	sprintf(str1,"CLOVE/%d/VPFlying-%d.tr",src_,dst_);
+// 	sprintf(str1,"Hermes/%d/VPFlying-%d.tr",src_,dst_);
 // 	FILE* fpResult=fopen(str1,"a+");
 // 	if(fpResult==NULL)
 //     {
@@ -1420,13 +1434,13 @@ void CLOVEProcessor::vpSendCnt_debug()
 // }
 
 
-void CLOVEProcessor::vpCWeight_debug()
+void HermesProcessor::vpCWeight_debug()
 {
 	clock_t begin_time = clock();
 
 	char str1[128];
 	memset(str1,0,128*sizeof(char));
-	sprintf(str1,"CLOVE/%d/VPCWeight-%d.tr",src_,dst_);
+	sprintf(str1,"Hermes/%d/VPCWeight-%d.tr",src_,dst_);
 	FILE* fpResult=fopen(str1,"a+");
 	if(fpResult==NULL)
     {
@@ -1453,12 +1467,12 @@ void CLOVEProcessor::vpCWeight_debug()
     // fprintf(time_rf, "[vpRate_debug elapse %lf] \n", elapsed_secs);
 }
 
-void CLOVEProcessor::vpWeight_debug()
+void HermesProcessor::vpWeight_debug()
 {
     clock_t begin_time = clock();
 	char str1[128];
 	memset(str1,0,128*sizeof(char));
-	sprintf(str1,"CLOVE/%d/VPWeight-%d.tr",src_,dst_);
+	sprintf(str1,"Hermes/%d/VPWeight-%d.tr",src_,dst_);
 	FILE* fpResult=fopen(str1,"a+");
 	if(fpResult==NULL)
     {
@@ -1486,12 +1500,12 @@ void CLOVEProcessor::vpWeight_debug()
 }
 
 
-void CLOVEProcessor::ipECE_debug()
+void HermesProcessor::ipECE_debug()
 {
     clock_t begin_time = clock();
 	char str1[128];
 	memset(str1,0,128*sizeof(char));
-	sprintf(str1,"CLOVE/%d/IPECE-%d.tr",src_,dst_);
+	sprintf(str1,"Hermes/%d/IPECE-%d.tr",src_,dst_);
 	FILE* fpResult=fopen(str1,"a+");
 	if(fpResult==NULL)
     {
@@ -1513,13 +1527,13 @@ void CLOVEProcessor::ipECE_debug()
 
 
 
-// void CLOVEProcessor::vpECE_debug()
+// void HermesProcessor::vpECE_debug()
 // {
 //     clock_t begin_time = clock();
 
 // 	char str1[128];
 // 	memset(str1,0,128*sizeof(char));
-// 	sprintf(str1,"CLOVE/%d/VPECE-%d.tr",src_,dst_);
+// 	sprintf(str1,"Hermes/%d/VPECE-%d.tr",src_,dst_);
 // 	FILE* fpResult=fopen(str1,"a+");
 // 	if(fpResult==NULL)
 //     {
@@ -1548,11 +1562,11 @@ void CLOVEProcessor::ipECE_debug()
 // }
 
 
-// void CLOVEProcessor::vpBurstSend_debug(Packet* p)
+// void HermesProcessor::vpBurstSend_debug(Packet* p)
 // {
 // 	char str1[128];
 // 	memset(str1,0,128*sizeof(char));
-// 	sprintf(str1,"CLOVE/%d/VPBurstSend-%d.tr",src_,dst_);
+// 	sprintf(str1,"Hermes/%d/VPBurstSend-%d.tr",src_,dst_);
 // 	FILE* fpResult=fopen(str1,"a+");
 // 	if(fpResult==NULL)
 //     {
@@ -1565,17 +1579,17 @@ void CLOVEProcessor::ipECE_debug()
 
 //     fprintf(fpResult, "node=%d vp_id=%u %u\n", 
 //     	n_->address(),
-//     	hdr_cmn::access(p)->clove_row.vp_id,
-//     	hdr_cmn::access(p)->clove_row.burst_id);
+//     	hdr_cmn::access(p)->hermes_row.vp_id,
+//     	hdr_cmn::access(p)->hermes_row.burst_id);
 
 // 	fclose(fpResult);
 // }
 
-// void CLOVEProcessor::vpBurstRecv_debug(Packet* p)
+// void HermesProcessor::vpBurstRecv_debug(Packet* p)
 // {
 // 	char str1[128];
 // 	memset(str1,0,128*sizeof(char));
-// 	sprintf(str1,"CLOVE/%d/VPBurstRecv-%d.tr",src_,dst_);
+// 	sprintf(str1,"Hermes/%d/VPBurstRecv-%d.tr",src_,dst_);
 // 	FILE* fpResult=fopen(str1,"a+");
 // 	if(fpResult==NULL)
 //     {
@@ -1588,20 +1602,20 @@ void CLOVEProcessor::ipECE_debug()
 
 //     fprintf(fpResult, "node=%d vp=%u burst_id=%u %lf\n", 
 //     	n_->address(),
-//     	hdr_cmn::access(p)->clove_row.vp_id,
-//     	hdr_cmn::access(p)->clove_row.burst_id,
-//     	hdr_cmn::access(p)->clove_row.burst_rate);
+//     	hdr_cmn::access(p)->hermes_row.vp_id,
+//     	hdr_cmn::access(p)->hermes_row.burst_id,
+//     	hdr_cmn::access(p)->hermes_row.burst_rate);
 
 // 	fclose(fpResult);
 // }
 
 
 
-// void CLOVEProcessor::vpBurst_debug(char* str)
+// void HermesProcessor::vpBurst_debug(char* str)
 // {
 // 	char str1[128];
 // 	memset(str1,0,128*sizeof(char));
-// 	sprintf(str1,"CLOVE/%d/VPBurstRecv-%d.tr",src_,dst_);
+// 	sprintf(str1,"Hermes/%d/VPBurstRecv-%d.tr",src_,dst_);
 // 	FILE* fpResult=fopen(str1,"a+");
 // 	if(fpResult==NULL)
 //     {
@@ -1618,11 +1632,11 @@ void CLOVEProcessor::ipECE_debug()
 // }
 
 
-void CLOVEProcessor::vpRecvEcnCnt_debug()
+void HermesProcessor::vpRecvEcnCnt_debug()
 {
 	char str1[128];
 	memset(str1,0,128*sizeof(char));
-	sprintf(str1,"CLOVE/%d/VPRecvEce-%d.tr",src_,dst_);
+	sprintf(str1,"Hermes/%d/VPRecvEce-%d.tr",src_,dst_);
 	FILE* fpResult=fopen(str1,"a+");
 	if(fpResult==NULL)
     {
@@ -1648,11 +1662,11 @@ void CLOVEProcessor::vpRecvEcnCnt_debug()
     // fprintf(time_rf, "[vpECE_debug elapse %lf]\n",elapsed_secs);
 }
 
-void CLOVEProcessor::vpCARecvEcnCnt_debug()
+void HermesProcessor::vpCARecvEcnCnt_debug()
 {
 	char str1[128];
 	memset(str1,0,128*sizeof(char));
-	sprintf(str1,"CLOVE/%d/VPCARecvEcnCnt-%d.tr",src_,dst_);
+	sprintf(str1,"Hermes/%d/VPCARecvEcnCnt-%d.tr",src_,dst_);
 	FILE* fpResult=fopen(str1,"a+");
 	if(fpResult==NULL)
     {
@@ -1676,4 +1690,62 @@ void CLOVEProcessor::vpCARecvEcnCnt_debug()
     
     
     // fprintf(time_rf, "[vpECE_debug elapse %lf]\n",elapsed_secs);
+}
+
+
+void HermesProcessor::vpRecvRTT_debug()
+{
+	char str1[128];
+	memset(str1,0,128*sizeof(char));
+	sprintf(str1,"Hermes/%d/VPRTT-%d.tr",src_,dst_);
+	FILE* fpResult=fopen(str1,"a+");
+	if(fpResult==NULL)
+    {
+        fprintf(stderr,"Can't open file %s!\n",str1);
+        return;
+    	// return(TCL_ERROR);
+    } 
+
+
+
+	map < unsigned, struct vp_record* > :: iterator it = vp_map.begin();
+    fprintf(fpResult, "%lf ",Scheduler::instance().clock());
+
+    for ( ; it != vp_map.end(); ++it)
+    {
+    	fprintf(fpResult, "%lf ",it->second->ca_row.c_rtt);
+    }
+
+    fprintf(fpResult, "\n");
+	fclose(fpResult);
+    
+}
+
+
+void HermesProcessor::vpCARecvRTT_debug()
+{
+	char str1[128];
+	memset(str1,0,128*sizeof(char));
+	sprintf(str1,"Hermes/%d/VPCARecvRTT-%d.tr",src_,dst_);
+	FILE* fpResult=fopen(str1,"a+");
+	if(fpResult==NULL)
+    {
+        fprintf(stderr,"Can't open file %s!\n",str1);
+        return;
+    	// return(TCL_ERROR);
+    } 
+
+
+
+	map < unsigned, struct ca_response* > :: iterator it = ca_map.begin();
+    fprintf(fpResult, "%lf ",Scheduler::instance().clock());
+
+    for ( ; it != ca_map.end(); ++it)
+    {
+    	fprintf(fpResult, "%lf ",it->second->recv_rtt);
+    }
+
+    fprintf(fpResult, "\n");
+	fclose(fpResult);
+    
 }

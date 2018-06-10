@@ -487,10 +487,10 @@ struct vp_record* CLBProcessor::vp_next_at_ratio()
 		}
 		else 
 		{
-			if (fabs(vp_tmp->ca_row.r_rate - vp_tmp->ca_row.rate) < 1E-1)
+			if (fabs(vp_tmp->ca_row.r_rate) < 1E-1)
 				continue;
 
-			cfr = vp_tmp->ca_row.r_rate - vp_tmp->ca_row.rate;
+			cfr = vp_tmp->ca_row.r_rate;
 			// fprintf(stderr, "%lf\n", cfr);
 			// fflush(stderr);
 			rate_cnt += cfr / 100;
@@ -540,10 +540,10 @@ struct vp_record* CLBProcessor::vp_next_at_ratio()
 
 		 	vp_tmp = it->second;
 			
-		 	if (fabs(vp_tmp->ca_row.r_rate - vp_tmp->ca_row.rate) < 1E-1)
+		 	if (fabs(vp_tmp->ca_row.r_rate) < 1E-1)
 		 		continue;
 
-		 	cfr = vp_tmp->ca_row.r_rate - vp_tmp->ca_row.rate;
+		 	cfr = vp_tmp->ca_row.r_rate;
 
 	 		rand_cnt -= cfr / 100;
 

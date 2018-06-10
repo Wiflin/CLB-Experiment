@@ -45,8 +45,8 @@
  */
 
 
-#ifndef clove_processor_h
-#define clove_processor_h
+#ifndef hermes_processor_h
+#define hermes_processor_h
 
 #include "ip.h"
 #include <math.h>
@@ -58,8 +58,8 @@
 
 class Node;
 class Classifier;
-class CLOVE;
-class CLOVEProcessor;
+class Hermes;
+class HermesProcessor;
 
 // #####################################
 // used by a sender
@@ -77,7 +77,7 @@ struct ca_record
 	double 	 fresh_time;
 	double	 update_time;
 	double	 r_time;	
-
+	double 	 c_rtt;
 
 	unsigned recv_ece_cnt; // for debug
 	//just for ns2 simulator, it isn't needed in real
@@ -99,6 +99,7 @@ struct ca_response {
 	unsigned hashkey;
 	unsigned recv_cnt;
 	bool	 recv_ecn;
+	double 	 recv_rtt;
 	unsigned recv_ecn_cnt;
 	int 	 burst_pending;
 	int 	 burst_cnt;
@@ -108,21 +109,21 @@ struct ca_response {
 
 // ########################################
 
-// class CLOVEProcessorTimer : public TimerHandler {
+// class HermesProcessorTimer : public TimerHandler {
 // public: 
-// 	CLOVEProcessorTimer(CLOVEProcessor * a) : TimerHandler() { a_ = a; }
+// 	HermesProcessorTimer(HermesProcessor * a) : TimerHandler() { a_ = a; }
 // protected:
 // 	virtual void expire(Event *e);
-// 	CLOVEProcessor *a_;
+// 	HermesProcessor *a_;
 // };
 
 
 
-class CLOVEProcessor
+class HermesProcessor
 {
 public:
-	CLOVEProcessor(Node*, Classifier*, CLOVE*, int, int, int);
-	~CLOVEProcessor();
+	HermesProcessor(Node*, Classifier*, Hermes*, int, int, int);
+	~HermesProcessor();
 
 	int recv(Packet* p, Handler*h);
 	int send(Packet* p, Handler*h);
@@ -149,7 +150,7 @@ protected:
 	void vp_init();
 	// void vp_burst(struct vp_record* vp);
 
-	// clove will truncate ecn before all vp receive ecn
+	// hermes will truncate ecn before all vp receive ecn
 	bool ecn_truncate(Packet* p);
 
 	// function s
@@ -166,8 +167,8 @@ protected:
 
 	Node* 		n_;
 	Classifier*	c_;
-	CLOVE* 		clove_;
-	// CLOVEProcessorTimer pt_;
+	Hermes* 		hermes_;
+	// HermesProcessorTimer pt_;
 	int 		src_;
 	int 		dst_;
 	int 		VP_SIZE;
@@ -226,7 +227,8 @@ protected:
 	// void vpBurst_debug(char* str);
 	void vpRecvEcnCnt_debug();
 	void vpCARecvEcnCnt_debug();
-	
+	void vpRecvRTT_debug();
+	void vpCARecvRTT_debug();
 };
 
 

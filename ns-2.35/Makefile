@@ -340,6 +340,7 @@ OBJ_CC = \
 	link/dre.o \
 	clb/conga.o clb/clb.o clb/clb-processor.o clb/clb-queue.o \
 	clb/clove.o clb/clove-processor.o \
+	clb/hermes.o clb/hermes-processor.o \
 	$(OBJ_STL)
 
 

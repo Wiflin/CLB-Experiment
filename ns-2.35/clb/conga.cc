@@ -58,12 +58,18 @@
 #include <cstdlib>
 #include <string>
 #include <sys/stat.h> 
+#include <sstream>
 using namespace std;
 
 Conga::Conga(Node* node, int slots, int leafDownPortNumber) : 
 		route_debug_(0), all_pkts_debug_(0),
 		n_(node), slots_(slots), leafDownPortNumber_(leafDownPortNumber) 
 {
+	mkdir("Conga",0777);
+	stringstream dir; 
+	dir << "Conga/" << n_->address();
+	mkdir(dir.str().c_str(),0777);
+	fprintf(stderr, "[Conga Constructor] mkdir %s\n", dir.str().c_str() );
 }
 
 
@@ -87,6 +93,13 @@ int Conga::route(Packet* p, Classifier* c_)
 	int dst = serv2leaf(iph->dst_.addr_);
 	int r_ = -1, fee_ = 0x7fffffff;
 
+
+
+	//debug start!
+	RT_debug(dst);
+	RTC_debug(dst);
+	//debug end!
+
 	vector < int > tmp;
 	map < int,int* >::iterator it = route_table_.find(dst);
 	if (it != route_table_.end())
@@ -105,8 +118,6 @@ int Conga::route(Packet* p, Classifier* c_)
 		}
 
 		r_ = tmp[rand() % tmp.size()];
-
-
 	}
 	
 		// fprintf(stderr,"[conga] %lf-Node-%d tmp.size=%d route=%d slots=%d  getting out route() \n"
@@ -155,6 +166,19 @@ int Conga::route(Packet* p, Classifier* c_)
  	
  	if (all_pkts_debug_)
  		packet_debug(p, r_);
+
+ 	// route count  
+ 	map < int, int* > :: iterator rtc_it = route_count_.find(dst);
+ 	if (rtc_it == route_count_.end())
+ 	{
+ 		route_count_[dst] = new int[slots_]();
+ 	}
+ 	
+ 	fprintf(stderr, "node-%d %lf choose %d\n",n_->address(), Scheduler::instance().clock(), r_);
+ 	fflush(stderr);
+ 	// record route result
+ 	route_count_[dst][r_] += 1;
+
 
 	return r_;
 
@@ -323,4 +347,123 @@ void Conga::packetPrint(Packet* p,Classifier* c,char* file_str,char* debug_str="
 		);
 		fclose(fpResult);
 	}
+}
+
+
+void Conga::RT_ALL_debug()
+{
+	map < int, int* > :: iterator it = route_table_.begin();
+
+	for ( ; it != route_table_.end(); it++)
+	{
+		int na = n_->address();
+		int dst_ = it->first;
+		int* row = it->second;
+	
+		char str1[128];
+		memset(str1,0,128*sizeof(char));
+		sprintf(str1,"Conga/%d/RouteTable-%d.tr", na, dst_);
+		FILE* fpResult=fopen(str1,"a+");
+		if(fpResult==NULL)
+	    {
+	        fprintf(stderr,"Can't open file %s!\n",str1);
+	        return;
+	    	// return(TCL_ERROR);
+	    }
+
+	    fprintf(fpResult, "%lf ",Scheduler::instance().clock());
+
+	    for (int i = 0; i < slots_; ++i)
+	    {
+	    	fprintf(fpResult, "%d ", row[i]);
+	    }
+
+	    fprintf(fpResult, "\n");
+	    fclose(fpResult);
+	}
+
+}
+
+
+void Conga::RT_debug(int dst)
+{
+	// fprintf(stderr, "im in!==========\n");
+	map < int, int* > :: iterator it = route_table_.find(dst);
+
+
+	if (it == route_table_.end())
+	{
+		fprintf(stderr, "[Conga RT_debug] Did not find RT row of %d.\n", dst);
+		return;
+	}
+
+	int na = n_->address();
+	int dst_ = it->first;
+	int* row = it->second;
+
+	char str1[128];
+	memset(str1,0,128*sizeof(char));
+	sprintf(str1,"Conga/%d/RouteTable-%d.tr", na, dst_);
+	FILE* fpResult=fopen(str1,"a+");
+	if(fpResult==NULL)
+    {
+        fprintf(stderr,"Can't open file %s!\n",str1);
+        return;
+    	// return(TCL_ERROR);
+    }
+
+    fprintf(fpResult, "%lf ",Scheduler::instance().clock());
+
+    for (int i = 0; i < slots_; ++i)
+    {
+    	fprintf(fpResult, "%d ", row[i]);
+    }
+
+    fprintf(fpResult, "\n");
+    fclose(fpResult);
+	
+
+}
+
+
+
+
+void Conga::RTC_debug(int dst)
+{
+	// fprintf(stderr, "im in!==========\n");
+	map < int, int* > :: iterator it = route_count_.find(dst);
+
+
+	if (it == route_count_.end())
+	{
+		fprintf(stderr, "[Conga RT_debug] Did not find RT row of %d.\n", dst);
+		return;
+	}
+
+	int na = n_->address();
+	int dst_ = it->first;
+	int* row = it->second;
+
+	char str1[128];
+	memset(str1,0,128*sizeof(char));
+	sprintf(str1,"Conga/%d/RouteCount-%d.tr", na, dst_);
+	FILE* fpResult=fopen(str1,"a+");
+	if(fpResult==NULL)
+    {
+        fprintf(stderr,"Can't open file %s!\n",str1);
+        return;
+    	// return(TCL_ERROR);
+    }
+
+    fprintf(fpResult, "%lf ",Scheduler::instance().clock());
+
+    for (int i = 0; i < slots_; ++i)
+    {
+    	fprintf(fpResult, "%d ", row[i]);
+    }
+
+    fprintf(fpResult, "\n");
+    fclose(fpResult);
+	
+
 }
