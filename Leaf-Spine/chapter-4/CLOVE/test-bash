@@ -18,8 +18,13 @@ clean() {
 }
 
 
+rtest() {
+	ns part1.tcl $1 $2 >tmp 2>error.tmp
+}
+
 if [ "$1"x == "clean"x ];then
 	clean
+	echo "`pwd` clean finished"
 	exit
 fi
 
@@ -28,11 +33,7 @@ if [ "$1"x == "plot"x ];then
 	exit
 fi
 
-if [ "$2"x != "clean"x ];then
-	clean
-	rand=`date '+%s'`
-	echo "ns $1 $2 10000 0.02 2 10G 40 1G 40 $rand >tmp 2>error.tmp"
-	ns $1 $2 10000 0.02 2 10G 40 1G 40 $rand >tmp 2>error.tmp
-	python3 ../untitled0.py InputFlow-FCT-80-40.tr
-	python3 ../untitled1.py InputFlow-FCT-80-40.tr
-fi
+
+# after all functor check
+clean
+rtest $1 $2

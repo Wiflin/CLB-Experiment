@@ -34,7 +34,10 @@ set intialCwnd 100
 Agent/TCP/FullTcp/Sack set sack_rtx_cthresh_ 5000;
 Agent/TCP/FullTcp set tcprexmtthresh_ 5000
 Agent/TCP set IF_PRINT_SEQTIMELINE 1
-# Node set loadBalancePerPacket_ 1
+
+if {$method == "CONGA"} {
+	Node set loadBalancePerPacket_ 1
+}
 # Node set loadBalanceFlowlet_ 1
 
 
@@ -330,9 +333,9 @@ puts [format "Adding routes for leaf and spine completed! Run for %dh:%dm:%ds" $
 
 ################################################################
 
-set rwndSize 10000
-Agent/TCP set window_ 10000
-Agent/TCP set maxcwnd_ 10000
+set rwndSize 4000
+Agent/TCP set window_ 4000
+Agent/TCP set maxcwnd_ 4000
 Agent/TCP set minrto_ 5e-3
 Agent/TCP set tcpTick_ 1e-5
 Agent/TCP set rtxcur_init_ 5e-3

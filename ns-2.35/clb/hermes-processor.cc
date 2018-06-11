@@ -655,43 +655,46 @@ struct vp_record* HermesProcessor::vp_next()
 
 	if (good.size() > 0)
 	{
-		sit = good.begin(); 
-		vp = *sit;
+		vp = good[rand() % good.size()];
+		// sit = good.begin(); 
+		// vp = *sit;
 
-		for ( ; sit != good.end(); sit++)
-		{
-			if ((*sit)->ca_row.send_cnt < vp->ca_row.send_cnt)
-			{
-				vp = *sit;
-			}
-		}
+		// for ( ; sit != good.end(); sit++)
+		// {
+		// 	if ((*sit)->ca_row.send_cnt < vp->ca_row.send_cnt)
+		// 	{
+		// 		vp = *sit;
+		// 	}
+		// }
 
 	}
 	else if (grey.size() > 0)
 	{
-		sit = grey.begin(); 
-		vp = *sit;
+		vp = grey[rand() % grey.size()];
+		// sit = grey.begin(); 
+		// vp = *sit;
 
-		for ( ; sit != grey.end(); sit++)
-		{
-			if ((*sit)->ca_row.send_cnt < vp->ca_row.send_cnt)
-			{
-				vp = *sit;
-			}
-		}
+		// for ( ; sit != grey.end(); sit++)
+		// {
+		// 	if ((*sit)->ca_row.send_cnt < vp->ca_row.send_cnt)
+		// 	{
+		// 		vp = *sit;
+		// 	}
+		// }
 	}
 	else if (cong.size() > 0)
 	{
-		sit = cong.begin(); 
-		vp = *sit;
+		vp = cong[rand() % cong.size()];
+		// sit = cong.begin(); 
+		// vp = *sit;
 
-		for ( ; sit != cong.end(); sit++)
-		{
-			if ((*sit)->ca_row.send_cnt < vp->ca_row.send_cnt)
-			{
-				vp = *sit;
-			}
-		}
+		// for ( ; sit != cong.end(); sit++)
+		// {
+		// 	if ((*sit)->ca_row.send_cnt < vp->ca_row.send_cnt)
+		// 	{
+		// 		vp = *sit;
+		// 	}
+		// }
 	}
 	else 
 	{

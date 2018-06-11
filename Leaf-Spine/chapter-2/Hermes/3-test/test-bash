@@ -20,7 +20,7 @@ clean() {
 
 
 rtest() {
-	ns part1.tcl $1 $2 >tmp 2>error.tmp
+	time `ns part1.tcl $1 $2 >tmp 2>error.tmp`
 }
 
 if [ "$1"x == "clean"x ];then

@@ -34,7 +34,10 @@ set intialCwnd 100
 Agent/TCP/FullTcp/Sack set sack_rtx_cthresh_ 5000;
 Agent/TCP/FullTcp set tcprexmtthresh_ 5000
 Agent/TCP set IF_PRINT_SEQTIMELINE 1
-# Node set loadBalancePerPacket_ 1
+
+if {$method == "CONGA"} {
+	Node set loadBalancePerPacket_ 1
+}
 # Node set loadBalanceFlowlet_ 1
 
 
@@ -83,13 +86,13 @@ for {set i 0} {$i<$topSwitchNumber} {incr i} {
 # 10G => 400 queue length
 
 
-set queueSpineSwitch 2400
-set queueLeafSwitch 2400
+set queueSpineSwitch 240
+set queueLeafSwitch 240
 
 set queueManage "DropTail"
 set ecnThresholdPortion 0.3
 
-set sendBufferSize	4000
+set sendBufferSize	400
 set ecnThresholdPortionLeaf 0.3
 
 # set linkRate	30G
@@ -102,13 +105,13 @@ puts "initializing links between servers and leaf(i) switches......"
 for {set i 0} {$i<$accessSwitchNumber} {incr i} {
 	for {set j 0} {$j<$leafDownPortNumber} {incr j} {
 		set k [expr $i*$leafDownPortNumber+$j]
-		$ns simplex-link $n($k) $sLeaf($i) 100G 0.00002s $queueManage
+		$ns simplex-link $n($k) $sLeaf($i) 10G 0.00002s $queueManage
 		$ns queue-limit $n($k) $sLeaf($i) $sendBufferSize
 		$ns ecn-threshold $n($k) $sLeaf($i) [expr int($sendBufferSize*$ecnThresholdPortionLeaf)]
 
-		$ns simplex-link $sLeaf($i) $n($k) 100G 0.00002s $queueManage
-		$ns queue-limit $sLeaf($i) $n($k) $queueLeafSwitch
-		$ns ecn-threshold $sLeaf($i) $n($k) [expr int($queueLeafSwitch*$ecnThresholdPortionLeaf)]
+		$ns simplex-link $sLeaf($i) $n($k) 10G 0.00002s $queueManage
+		$ns queue-limit $sLeaf($i) $n($k) $sendBufferSize
+		$ns ecn-threshold $sLeaf($i) $n($k) [expr int($sendBufferSize*$ecnThresholdPortionLeaf)]
 		puts "node([$n($k) set address_]) <-> leaf($i)([$sLeaf($i) set address_]) "
 
 		set queue1 [[$ns link $sLeaf($i) $n($k)] queue]
@@ -168,11 +171,11 @@ puts "initializing links between leaf(i) and spine switches......"
 
 
 # 0 -> 0
-$ns simplex-link $sLeaf(0) $sSpine(0) 60G 0.00002s $queueManage	
+$ns simplex-link $sLeaf(0) $sSpine(0) 6G 0.00002s $queueManage	
 $ns queue-limit $sLeaf(0) $sSpine(0) $queueLeafSwitch
 $ns ecn-threshold $sLeaf(0) $sSpine(0) [expr int($queueLeafSwitch*$ecnThresholdPortion)]
 
-$ns simplex-link $sSpine(0) $sLeaf(0) 60G 0.00002s $queueManage
+$ns simplex-link $sSpine(0) $sLeaf(0) 6G 0.00002s $queueManage
 $ns queue-limit $sSpine(0) $sLeaf(0) $queueSpineSwitch
 $ns ecn-threshold $sSpine(0) $sLeaf(0) [expr int($queueSpineSwitch*$ecnThresholdPortion)]
 
@@ -183,12 +186,12 @@ $queueA monitor-FlowPath
 
 
 # 0 -> 1
-$ns simplex-link $sLeaf(0) $sSpine(1) 30G 0.00002s $queueManage	
+$ns simplex-link $sLeaf(0) $sSpine(1) 3G 0.00002s $queueManage	
 $ns queue-limit $sLeaf(0) $sSpine(1) $queueLeafSwitch
 $ns ecn-threshold $sLeaf(0) $sSpine(1) [expr int($queueLeafSwitch*$ecnThresholdPortion)]
-$ns simplex-link $sSpine(1) $sLeaf(0) 30G 0.00002s $queueManage
-$ns queue-limit $sSpine(1) $sLeaf(0) 1200
-$ns ecn-threshold $sSpine(1) $sLeaf(0) [expr int(1200*$ecnThresholdPortion)]
+$ns simplex-link $sSpine(1) $sLeaf(0) 3G 0.00002s $queueManage
+$ns queue-limit $sSpine(1) $sLeaf(0) 120
+$ns ecn-threshold $sSpine(1) $sLeaf(0) [expr int(120*$ecnThresholdPortion)]
 
 set queueB [[$ns link $sLeaf(0) $sSpine(1)] queue]
 $queueB monitor-QueueLen
@@ -216,10 +219,10 @@ $queueB monitor-FlowPath
 # $queueD monitor-QueueLen
 
 # 1 -> 0
-$ns simplex-link $sLeaf(1) $sSpine(0) 60G 0.00002s $queueManage	
+$ns simplex-link $sLeaf(1) $sSpine(0) 6G 0.00002s $queueManage	
 $ns queue-limit $sLeaf(1) $sSpine(0) $queueLeafSwitch
 $ns ecn-threshold $sLeaf(1) $sSpine(0) [expr int($queueLeafSwitch*$ecnThresholdPortion)]
-$ns simplex-link $sSpine(0) $sLeaf(1) 60G 0.00002s $queueManage
+$ns simplex-link $sSpine(0) $sLeaf(1) 6G 0.00002s $queueManage
 $ns queue-limit $sSpine(0) $sLeaf(1) $queueSpineSwitch
 $ns ecn-threshold $sSpine(0) $sLeaf(1) [expr int($queueSpineSwitch*$ecnThresholdPortion)]
 set queueC [[$ns link $sLeaf(1) $sSpine(0)] queue]
@@ -227,10 +230,10 @@ $queueC monitor-QueueLen
 
 
 # 1 -> 1
-$ns simplex-link $sLeaf(1) $sSpine(1) 60G 0.00002s $queueManage	
+$ns simplex-link $sLeaf(1) $sSpine(1) 6G 0.00002s $queueManage	
 $ns queue-limit $sLeaf(1) $sSpine(1) $queueLeafSwitch
 $ns ecn-threshold $sLeaf(1) $sSpine(1) [expr int($queueLeafSwitch*$ecnThresholdPortion)]
-$ns simplex-link $sSpine(1) $sLeaf(1) 60G 0.00002s $queueManage
+$ns simplex-link $sSpine(1) $sLeaf(1) 6G 0.00002s $queueManage
 $ns queue-limit $sSpine(1) $sLeaf(1) $queueSpineSwitch
 $ns ecn-threshold $sSpine(1) $sLeaf(1) [expr int($queueSpineSwitch*$ecnThresholdPortion)]
 set queueD [[$ns link $sLeaf(1) $sSpine(1)] queue]
@@ -330,9 +333,9 @@ puts [format "Adding routes for leaf and spine completed! Run for %dh:%dm:%ds" $
 
 ################################################################
 
-set rwndSize 10000
-Agent/TCP set window_ 10000
-Agent/TCP set maxcwnd_ 10000
+set rwndSize 4000
+Agent/TCP set window_ 4000
+Agent/TCP set maxcwnd_ 4000
 Agent/TCP set minrto_ 5e-3
 Agent/TCP set tcpTick_ 1e-5
 Agent/TCP set rtxcur_init_ 5e-3
