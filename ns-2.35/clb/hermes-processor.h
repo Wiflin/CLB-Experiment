@@ -61,6 +61,8 @@ class Classifier;
 class Hermes;
 class HermesProcessor;
 
+enum ptype {FAILED = 0, CONGESTED, GREY, GOOD};
+
 // #####################################
 // used by a sender
 struct ca_record
@@ -78,6 +80,8 @@ struct ca_record
 	double	 update_time;
 	double	 r_time;	
 	double 	 c_rtt;
+	ptype 	 rank;
+	double 	 vp_ecn_ratio;
 
 	unsigned recv_ece_cnt; // for debug
 	//just for ns2 simulator, it isn't needed in real
@@ -103,6 +107,8 @@ struct ca_response {
 	unsigned recv_ecn_cnt;
 	int 	 burst_pending;
 	int 	 burst_cnt;
+	vector<bool> ecn_bitmap;
+	double 	 ecn_time;
 	double	 burst_time;
 	double time;
 };
@@ -229,6 +235,10 @@ protected:
 	void vpCARecvEcnCnt_debug();
 	void vpRecvRTT_debug();
 	void vpCARecvRTT_debug();
+	void vpRecvEcnRatio_debug();
+	void vpCARecvEcnRatio_debug();
+	void vpRank_debug();
+
 };
 
 

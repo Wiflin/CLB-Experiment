@@ -621,10 +621,65 @@ struct vp_record* CLBProcessor::vp_next_at_cost()
 	return NULL;
 }
 
+// smooth weight round robin
+struct vp_record* CLBProcessor::vp_next_at_ratio_SWRR()
+{
+	if (vp_map.size() < VP_SIZE)
+		return vp_alloc();
+
+	if (burst_pending == true)
+		return burst_vp;
+
+	// map < unsigned, struct vp_record* > :: iterator it = vp_map.begin();
+
+	double now 					= Scheduler::instance().clock();
+	struct vp_record* vp 		= NULL;
+	double total 				= 0;
+
+	int max_weight 				= vp_map.begin()->second->ca_row.c_rate;
+	struct vp_record* max_vp 	= vp_map.begin()->second;
+
+	map < unsigned, struct vp_record* > :: iterator it = vp_map.begin();
+
+
+	for ( ; it != vp_map.end(); ++it )
+	{
+		struct ca_record* car = &it->second->ca_row;
+
+		car->c_rate += car->r_rate;
+		total 		+= car->r_rate;
+
+		if (car->c_rate > max_weight)
+		{
+			max_weight = car->c_rate;
+			max_vp = it->second;
+		}
+	}
+
+	if (max_vp == NULL)
+	{
+		fprintf(stderr, "[clb-processor vp_next] max_vp==NULL  DID NOT GET A VALID VP.\n");
+	}
+
+	// algorithm : smooth weight round robin
+	else
+	{
+		max_vp->ca_row.c_rate -= total;
+		// fprintf(stderr, "[clove-processor vp_next] max_vp=%d  \n", max_vp->hashkey);
+
+		return max_vp;
+	}
+
+	return NULL;
+}
+
+
 struct vp_record* CLBProcessor::vp_next()
 {
-	struct vp_record* vp = vp_next_at_ratio();
-	// fprintf(stderr, "and it return. hashkey=%u vp=%p\n", vp->hashkey, vp);
+	struct vp_record* vp = vp_next_at_ratio_SWRR();
+	fprintf(stderr, "return vp=%p\n", vp);
+	fflush(stderr);
+	fprintf(stderr, " hashkey=%u\n", vp->hashkey);
 	return vp;
 }
 

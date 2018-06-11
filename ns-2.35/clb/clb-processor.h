@@ -72,6 +72,7 @@ struct ca_record
 	double	 flying;
 	double 	 rate;
 	double	 r_rate;
+	double 	 c_rate;
 	double 	 fresh_time;
 	double	 update_time;
 	double	 r_time;	
@@ -134,6 +135,7 @@ protected:
 	void				vp_free(unsigned);
 	struct vp_record* 	vp_next_at_ratio();
 	struct vp_record* 	vp_next_at_cost();
+	struct vp_record*   vp_next_at_ratio_SWRR();
 	struct vp_record*	vp_next();	// SHOULD ALLOC INSTANCE IF IT'S NEEDED
 	struct vp_record*	vp_get(unsigned);	// DO NOT NEED TO ALLOC INSTANCE
 	struct vp_record*	vp_burst_get(struct vp_record* );
@@ -228,6 +230,7 @@ protected:
 		// maybe change to current average of rate
 		ca_row->rate = init_rate();
 		ca_row->r_rate = init_rrate;
+		ca_row->c_rate = 0;
 		ca_row->flying = 0;
 
 		ca_row->update_time = Scheduler::instance().clock();

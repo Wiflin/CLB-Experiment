@@ -161,6 +161,21 @@ int Queue::command(int argc, const char*const* argv)
 		if (strcmp(argv[1], "monitor-FlowSpeed") == 0) { /////WF add
 			ifMoniterFlowSpeed_=1;
 			schedDelay = 5E-4;
+			ifEnque_ = 0;
+			enqueFlowSize = 0;
+			qFlowSize = lastFlowSize = 0;
+			mkdir("FlowSpeed",0777);
+			system("exec rm -r -f FlowSpeed/*");
+			return TCL_OK;
+		}
+	}
+
+	if (argc==3) {
+		if (strcmp(argv[1], "monitor-FlowSpeed") == 0) { /////WF add
+			ifMoniterFlowSpeed_=1;
+			schedDelay = 5E-4;
+			ifEnque_ = atoi(argv[2]);
+			enqueFlowSize = 0;
 			qFlowSize = lastFlowSize = 0;
 			mkdir("FlowSpeed",0777);
 			system("exec rm -r -f FlowSpeed/*");
@@ -179,6 +194,11 @@ void Queue::recv(Packet* p, Handler*)
 	printDelayTimeline(p);////CG add
 
 	printPathTrace(p);///WF add
+
+	if (ifMoniterFlowSpeed_ && ifEnque_)
+	{
+		enqueFlowSize += hdr_cmn::access(p)->size_;
+	}
 
 	if(ifTagTimeStamp_==1)
 	{
@@ -538,6 +558,8 @@ void Queue::printFlowSpeed()
         return;
     }
 
+    pFlowSpeedTimer->resched(schedDelay);
+
 	char str1[128];
 	memset(str1,0,128*sizeof(char));
 	sprintf(str1,"FlowSpeed/Path%d-%d_Speed.tr"
@@ -554,6 +576,32 @@ void Queue::printFlowSpeed()
     fprintf(fpFlowSpeed, "%lf %.lf\t", Scheduler::instance().clock(), qSpeed);
     lastFlowSize = qFlowSize;
 
+    fprintf(fpFlowSpeed, "\n");
+    fclose(fpFlowSpeed);
+
+
+    if (!ifEnque_)
+    	return;
+
+
+    // char str1[128];
+	memset(str1,0,128*sizeof(char));
+	sprintf(str1,"FlowSpeed/Path%d-%d_EnqueSpeed.tr"
+		,last_hop
+		,next_hop);
+
+	fpFlowSpeed=fopen(str1,"a");
+	if(fpFlowSpeed==NULL)
+	{
+		fprintf(stderr,"%s, Can't open file %s!\n",strerror(errno),str1);
+	}
+    
+    double enqueSpeed = (double)(enqueFlowSize) / (schedDelay * 1000 * 1000) * 8;
+    fprintf(fpFlowSpeed, "%lf %.lf\t", Scheduler::instance().clock(), enqueSpeed);
+    enqueFlowSize = 0;
+
+    fprintf(fpFlowSpeed, "\n");
+    fclose(fpFlowSpeed);
 
  //    vector < flowInfo >::iterator it;
 	// for(it = FlowTable.begin (); it != FlowTable.end (); ++it)
@@ -569,9 +617,8 @@ void Queue::printFlowSpeed()
 	// 	it->lastSize = it->flowSize;
 	// }
 
-    fprintf(fpFlowSpeed, "\n");
-    fclose(fpFlowSpeed);
-	pFlowSpeedTimer->resched(schedDelay);
+    
+	
 }
 
 

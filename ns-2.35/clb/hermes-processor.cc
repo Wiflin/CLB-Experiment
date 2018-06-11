@@ -64,6 +64,13 @@
 #include "flags.h"
 #include "hermes-processor.h"
 
+// define for hermes
+#define ECN_PCNT 	((int)100)
+#define TH_ECN		((double)0.4)
+#define TH_RTT_HIGH	((double)1.6E-4)
+#define TH_RTT_LOW	((double)1E-4)
+#define T_ECN_EXPIRE	((double)1E-5)
+
 // vp rrate reduce when received ecn 
 #define Hermes_WR	((double)3)
 #define Hermes_WI	((double)100)
@@ -160,6 +167,8 @@ void HermesProcessor::init_ca_record(struct ca_record* ca_row)
 	ca_row->r_time = Scheduler::instance().clock();
 
 	ca_row->c_rtt = 0;
+	ca_row->rank = GOOD;
+	ca_row->vp_ecn_ratio = 0;
 	// ca_row->last_update_time = Scheduler::instance().clock();
 	ca_row->valid = 1;
 	ca_row->pending = 0;
@@ -176,14 +185,12 @@ void HermesProcessor::init_ca_response(struct ca_response* ca)
 	ca->burst_cnt = 0;
 	ca->burst_time = Scheduler::instance().clock();
 	ca->time = Scheduler::instance().clock();
+	ca->ecn_time = Scheduler::instance().clock();
 }
 
 
 int HermesProcessor::recv(Packet* p, Handler*h)
 {
-	
-
-
 	hdr_ip* iph = hdr_ip::access(p);
 	hdr_cmn* cmnh = hdr_cmn::access(p);
 
@@ -209,25 +216,39 @@ int HermesProcessor::recv(Packet* p, Handler*h)
 			// vp_ecn feedback
 			if (cmnh->hermes_row.vp_recn == 1)
 			{
-				if (vp->ca_row.weight > 1 && now - vp->ca_row.r_time > 5*PRE_RTT)
-				{
-					vp->ca_row.weight -= (vp->ca_row.weight / 3);
-					// vp->ca_row.weight = 0;
-					vp->ca_row.r_time = now;
-				}
+				// if (vp->ca_row.weight > 1 && now - vp->ca_row.r_time > 5*PRE_RTT)
+				// {
+				// 	vp->ca_row.weight -= (vp->ca_row.weight / 3);
+				// 	// vp->ca_row.weight = 0;
+				// 	vp->ca_row.r_time = now;
+				// }
 				vp->ca_row.recv_ece_cnt += 1;
 			}
 
 			vp->ca_row.c_rtt = cmnh->hermes_row.vp_rtt;
+			vp->ca_row.vp_ecn_ratio = cmnh->hermes_row.ecn_ratio;
+
+			if (vp->ca_row.vp_ecn_ratio < TH_ECN && vp->ca_row.c_rtt < TH_RTT_LOW)
+			{
+				vp->ca_row.rank = GOOD;
+			}
+			else if (vp->ca_row.vp_ecn_ratio > TH_ECN && vp->ca_row.c_rtt > TH_RTT_HIGH)
+			{
+				vp->ca_row.rank = CONGESTED;
+			}
+			else 
+			{
+				vp->ca_row.rank = GREY;
+			}
 
 		}
 	}
 	
 	// tcp ecn feed back
-	if (hdr_flags::access(p)->ecnecho())
-	{
-		ecn_truncate(p);				
-	}
+	// if (hdr_flags::access(p)->ecnecho())
+	// {
+	// 	ecn_truncate(p);				
+	// }
 	if (hdr_flags::access(p)->ecnecho())
 	{
 		ece_cnt += 1;
@@ -247,6 +268,11 @@ int HermesProcessor::recv(Packet* p, Handler*h)
 	}
 
 	response->recv_rtt = Scheduler::instance().clock() - cmnh->hermes_row.vp_time;
+
+	response->ecn_bitmap.push_back(bool(hdr_flags::access(p)->ce()));
+	while (response->ecn_bitmap.size() > ECN_PCNT)
+		response->ecn_bitmap.erase(response->ecn_bitmap.begin());
+	response->ecn_time = Scheduler::instance().clock();
 	
 	if (hdr_flags::access(p)->ce())
 	{
@@ -266,6 +292,11 @@ int HermesProcessor::send(Packet* p, Handler*h)
 	vpSendCnt_debug();
 	vpRecvRTT_debug();
 	vpCARecvRTT_debug();
+	vpWeight_debug();
+	vpCWeight_debug();
+	vpRecvEcnRatio_debug();
+	vpCARecvEcnRatio_debug();
+	vpRank_debug();
 
 	hdr_ip* iph = hdr_ip::access(p);
 	hdr_cmn* cmnh = hdr_cmn::access(p);
@@ -276,6 +307,7 @@ int HermesProcessor::send(Packet* p, Handler*h)
 	bool		hermes_recv_ecn = 0;		// vp_recn
 	bool 		hermes_ren = 0;
 	double 		hermes_recv_rtt = 0;
+	double 		hermes_recv_ecn_ratio = 0;
 
 	struct vp_record*	vp = NULL;
 	struct ca_response*	ca = NULL;
@@ -296,6 +328,19 @@ int HermesProcessor::send(Packet* p, Handler*h)
 		hermes_recv_rtt = ca->recv_rtt;
 		ca->recv_ecn = 0;
 		hermes_ren = 1;
+
+		// caculate ratio
+		if (Scheduler::instance().clock() - ca->ecn_time > T_ECN_EXPIRE)
+		{
+			ca->ecn_bitmap.push_back(0);
+			while (ca->ecn_bitmap.size() > ECN_PCNT)
+				ca->ecn_bitmap.erase(ca->ecn_bitmap.begin());
+		}
+
+		int ecn_cnt = 0;
+		for (int i = 0; i < ca->ecn_bitmap.size(); ++i)
+			ecn_cnt += (ca->ecn_bitmap[i] ? 1 : 0);
+		hermes_recv_ecn_ratio = (double) ecn_cnt / ca->ecn_bitmap.size();
 	}
 	
 
@@ -307,6 +352,7 @@ int HermesProcessor::send(Packet* p, Handler*h)
 	cmnh->hermes_row.vp_rid = hermes_recv_vpid;
 	cmnh->hermes_row.vp_recn = hermes_recv_ecn;
 	cmnh->hermes_row.vp_rtt = hermes_recv_rtt;
+	cmnh->hermes_row.ecn_ratio = hermes_recv_ecn_ratio;
 	cmnh->hermes_row.response_en = hermes_ren;	
 
 	return 0;
@@ -358,6 +404,7 @@ struct vp_record* HermesProcessor::vp_alloc()
 
 	init_vp_record(vp);
 	vp->hashkey = hashkey;
+	// vp->ca_row.weight = Hermes_WI / hashkey_counter;
 
 	vp_map[hashkey] = vp;
 
@@ -573,54 +620,101 @@ void HermesProcessor::vp_free(unsigned hashkey)
 struct vp_record* HermesProcessor::vp_next()
 {
 	double now = Scheduler::instance().clock();
-
 	struct vp_record* vp = NULL;
-	double total = 0;
-	int max_weight = vp_map.begin()->second->ca_row.current_weight;
-	struct vp_record* max_vp = vp_map.begin()->second;
+
+	vector < struct vp_record* > fail, cong, grey, good;
+	vector < struct vp_record* > :: iterator sit;
 
 	map < unsigned, struct vp_record* > :: iterator it = vp_map.begin();
 
 
 	for ( ; it != vp_map.end(); ++it )
 	{
+		struct vp_record* vpr = it->second;
 		struct ca_record* car = &it->second->ca_row;
 
-		// check age 
-		// if (now - car->r_time > T_WEIGHT_EXPIRE && car->weight != Hermes_WI)
-		// {
-		// 	car->weight = Hermes_WI;
-		// 	// car->r_time = now;
-
-		// 	// fprintf(stderr, "[hermes-processor vp_next] vp weight refresh %d %d\n", it->second->hashkey, car->weight);
-		// }
-
-		car->current_weight += car->weight;
-		total += car->weight;
-
-		if (car->current_weight > max_weight)
+		switch (car->rank)
 		{
-			max_weight = car->current_weight;
-			max_vp = it->second;
+			case FAILED:
+				fail.push_back(vpr);
+				break;
+			case CONGESTED:
+				cong.push_back(vpr);
+				break;
+			case GREY:
+				grey.push_back(vpr);
+				break;
+			case GOOD:
+				good.push_back(vpr);
+				break;
+			default:
+				fprintf(stderr, "[hermes vp_next] could dispatch virtual path %d %d\n", it->second->hashkey, car->rank );
+			break;
 		}
 	}
 
-	if (max_vp == NULL)
+	if (good.size() > 0)
+	{
+		sit = good.begin(); 
+		vp = *sit;
+
+		for ( ; sit != good.end(); sit++)
+		{
+			if ((*sit)->ca_row.send_cnt < vp->ca_row.send_cnt)
+			{
+				vp = *sit;
+			}
+		}
+
+	}
+	else if (grey.size() > 0)
+	{
+		sit = grey.begin(); 
+		vp = *sit;
+
+		for ( ; sit != grey.end(); sit++)
+		{
+			if ((*sit)->ca_row.send_cnt < vp->ca_row.send_cnt)
+			{
+				vp = *sit;
+			}
+		}
+	}
+	else if (cong.size() > 0)
+	{
+		sit = cong.begin(); 
+		vp = *sit;
+
+		for ( ; sit != cong.end(); sit++)
+		{
+			if ((*sit)->ca_row.send_cnt < vp->ca_row.send_cnt)
+			{
+				vp = *sit;
+			}
+		}
+	}
+	else 
+	{
+		map < unsigned, struct vp_record* > :: iterator iter = vp_map.begin();
+		
+		int r = rand() % vp_map.size();
+
+		while(r--)
+		{
+			iter++;
+		}
+
+		vp = iter->second;
+	}
+
+
+	if (vp == NULL)
 	{
 		fprintf(stderr, "[hermes-processor vp_next] max_vp==NULL  DID NOT GET A VALID VP.\n");
 	}
 
-	// algorithm : smooth weight round robin
-	else
-	{
-		max_vp->ca_row.current_weight -= total;
-		// fprintf(stderr, "[hermes-processor vp_next] max_vp=%d  \n", max_vp->hashkey);
-	}
 
-	vpWeight_debug();
-	vpCWeight_debug();
-
-	return max_vp;
+	return vp;
 }
 
 
@@ -1748,4 +1842,97 @@ void HermesProcessor::vpCARecvRTT_debug()
     fprintf(fpResult, "\n");
 	fclose(fpResult);
     
+}
+
+
+void HermesProcessor::vpRecvEcnRatio_debug()
+{
+	char str1[128];
+	memset(str1,0,128*sizeof(char));
+	sprintf(str1,"Hermes/%d/VPEcnRatio-%d.tr",src_,dst_);
+	FILE* fpResult=fopen(str1,"a+");
+	if(fpResult==NULL)
+    {
+        fprintf(stderr,"Can't open file %s!\n",str1);
+        return;
+    	// return(TCL_ERROR);
+    } 
+
+
+
+	map < unsigned, struct vp_record* > :: iterator it = vp_map.begin();
+    fprintf(fpResult, "%lf ",Scheduler::instance().clock());
+
+    for ( ; it != vp_map.end(); ++it)
+    {
+    	fprintf(fpResult, "%lf ",it->second->ca_row.vp_ecn_ratio);
+    }
+
+    fprintf(fpResult, "\n");
+	fclose(fpResult);
+}
+
+
+void HermesProcessor::vpCARecvEcnRatio_debug()
+{
+	char str1[128];
+	memset(str1,0,128*sizeof(char));
+	sprintf(str1,"Hermes/%d/VPCARecvEcnRatio-%d.tr",src_,dst_);
+	FILE* fpResult=fopen(str1,"a+");
+	if(fpResult==NULL)
+    {
+        fprintf(stderr,"Can't open file %s!\n",str1);
+        return;
+    	// return(TCL_ERROR);
+    } 
+
+
+
+	map < unsigned, struct ca_response* > :: iterator it = ca_map.begin();
+    fprintf(fpResult, "%lf ",Scheduler::instance().clock());
+
+    for ( ; it != ca_map.end(); ++it)
+    {
+    	vector < bool > & vt = it->second->ecn_bitmap;
+    	int ecn_cnt = 0;
+    	double ratio = 0;
+
+    	for (int i = 0; i < vt.size(); i++)
+    		ecn_cnt += vt[i];
+
+    	ratio = (double) ecn_cnt / vt.size();
+
+    	fprintf(fpResult, "%d <-> %lf ", ecn_cnt, ratio);
+    }
+
+    fprintf(fpResult, "\n");
+	fclose(fpResult);
+}
+
+
+void HermesProcessor::vpRank_debug()
+{
+	char str1[128];
+	memset(str1,0,128*sizeof(char));
+	sprintf(str1,"Hermes/%d/VPRank-%d.tr",src_,dst_);
+	FILE* fpResult=fopen(str1,"a+");
+	if(fpResult==NULL)
+    {
+        fprintf(stderr,"Can't open file %s!\n",str1);
+        return;
+    	// return(TCL_ERROR);
+    } 
+
+
+
+	map < unsigned, struct vp_record* > :: iterator it = vp_map.begin();
+    fprintf(fpResult, "%lf ",Scheduler::instance().clock());
+
+    for ( ; it != vp_map.end(); ++it)
+    {
+    	fprintf(fpResult, "%d ",it->second->ca_row.rank);
+    }
+
+    fprintf(fpResult, "\n");
+	fclose(fpResult);
 }

@@ -219,6 +219,8 @@ protected:
 
 	friend class FlowSpeedTimer;
 	int ifMoniterFlowSpeed_;
+	int ifEnque_;
+	long long enqueFlowSize;
 	double schedDelay;
 	long long qFlowSize, lastFlowSize;
 	void printFlowSpeed();
