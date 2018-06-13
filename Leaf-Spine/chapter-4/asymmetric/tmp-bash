@@ -1,0 +1,28 @@
+#!/bin/bash
+
+
+
+load=`seq 0.1 0.1 1`
+
+
+rm -rf CLB
+
+for i in ${load[@]}
+do 
+	echo $i
+
+	mkdir CLB
+	mkdir CLB/load-$i 
+
+	cp  InputFlow-120-4000-load-$i.tr  part1.tcl test-bash ./CLB/load-$i
+
+	sdir=`pwd`
+	cdir="./CLB/load-$i"
+	cd $cdir
+	pwd
+
+	./test-bash CLB $i 4000 &
+
+	cd $sdir
+
+done

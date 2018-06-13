@@ -1,0 +1,42 @@
+#!/bin/bash
+
+if [[  $# -ne 1 && $# -ne 2 ]];then
+
+	echo "Usage: $0 FlowNumbers [ load ]"
+	exit
+
+fi 
+
+
+methods=("CLB" "CLOVE" "CONGA" "ECMP" "HERMES")
+load=`seq 0.1 0.1 1`
+flows=$1
+
+
+run()
+{
+	for method in ${methods[@]}
+	do
+		sdir=`pwd` 
+		cdir="./load-$2/$method/"
+		cd $cdir
+		echo `pwd`
+		echo "./test-bash $method $2 $1 & "
+		./test-bash $method $2 $1 & 
+		cd $sdir
+	done
+
+}
+
+
+if [ "$2"x != ""x ]
+then
+	run $flows $2
+else
+	for i in ${load[@]}
+	do
+		run  $flows $i
+	done
+fi
+
+

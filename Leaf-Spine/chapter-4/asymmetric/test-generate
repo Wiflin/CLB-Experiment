@@ -1,0 +1,38 @@
+#!/bin/bash
+
+if [[ $# -ne 2 ]];then
+
+	echo "Usage: $0 servers flows"
+	exit
+
+fi 
+
+
+servers=$1
+flows=$2
+
+method=("CLB" "CLOVE" "CONGA" "ECMP" "HERMES")
+load=`seq 0.1 0.1 1`
+
+for i in ${load[@]}
+do
+
+	echo "rm -rf load-$i && mkdir load-$i"
+	rm -rf load-$i && mkdir load-$i
+
+	for j in ${method[@]}
+	do
+		echo "|- mkdir load-$i/$j"
+		mkdir load-$i/$j
+
+		echo "|- cp test-bash part1.tcl InputFlow-24-120-load-$i.tr ./load-$i/$j"
+		cp test-bash part1.tcl InputFlow-$servers-$flows-load-$i.tr ./load-$i/$j
+
+	done
+
+
+
+done
+
+
+
