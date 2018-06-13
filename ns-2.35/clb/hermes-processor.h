@@ -115,13 +115,13 @@ struct ca_response {
 
 // ########################################
 
-// class HermesProcessorTimer : public TimerHandler {
-// public: 
-// 	HermesProcessorTimer(HermesProcessor * a) : TimerHandler() { a_ = a; }
-// protected:
-// 	virtual void expire(Event *e);
-// 	HermesProcessor *a_;
-// };
+class HermesProcessorTimer : public TimerHandler {
+public: 
+	HermesProcessorTimer(HermesProcessor * a) : TimerHandler() { a_ = a; }
+protected:
+	virtual void expire(Event *e);
+	HermesProcessor *a_;
+};
 
 
 
@@ -134,7 +134,7 @@ public:
 	int recv(Packet* p, Handler*h);
 	int send(Packet* p, Handler*h);
 
-	// void expire(Event *e);
+	void expire(Event *e);
 
 protected:
 	
@@ -174,7 +174,7 @@ protected:
 	Node* 		n_;
 	Classifier*	c_;
 	Hermes* 		hermes_;
-	// HermesProcessorTimer pt_;
+	HermesProcessorTimer pt_;
 	int 		src_;
 	int 		dst_;
 	int 		VP_SIZE;
@@ -221,9 +221,10 @@ protected:
 	// void vpcost_debug(int expire=0);
 	void vpSendCnt_debug();
 	// void vpRecvCnt_debug();
-	// void vpSendNew_debug();
+	void vpSendNew_debug();
 	// void vpRecvNew_debug();
 	// void vpFlying_debug();
+	void vpRate_debug();
 	void vpCWeight_debug();
 	void vpWeight_debug();
 	void ipECE_debug();

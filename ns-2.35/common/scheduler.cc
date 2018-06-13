@@ -145,6 +145,8 @@ Scheduler::dispatch(Event* p, double t)
 		abort();
 	}
 
+	// fprintf(stderr, "[Scheduler] dispatching %s\n", p->name_);
+
 	clock_ = t;
 	p->uid_ = -p->uid_;	// being dispatched
 	p->handler_->handle(p);	// dispatch

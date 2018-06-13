@@ -115,9 +115,9 @@ CLOVEProcessor::CLOVEProcessor(Node* node, Classifier* classifier, CLOVE* clove,
 
 	// pt_.sched(T_REFRESH);
 
-	stringstream dir; 
-	dir << "CLOVE/" << src_;
-	mkdir(dir.str().c_str(),0777);
+	// stringstream dir; 
+	// dir << "CLOVE/" << src_;
+	// mkdir(dir.str().c_str(),0777);
 
 
 
@@ -206,7 +206,7 @@ int CLOVEProcessor::recv(Packet* p, Handler*h)
 			// vp_ecn feedback
 			if (cmnh->clove_row.vp_recn == 1)
 			{
-				if (vp->ca_row.weight > 1 && now - vp->ca_row.r_time > 3*PRE_RTT)
+				if (vp->ca_row.weight > 1 && now - vp->ca_row.r_time > 20*PRE_RTT)
 				{
 					vp->ca_row.weight -= (vp->ca_row.weight / 3);
 					// vp->ca_row.weight = 0;
@@ -252,10 +252,10 @@ int CLOVEProcessor::recv(Packet* p, Handler*h)
 
 int CLOVEProcessor::send(Packet* p, Handler*h)
 {
-	vpCARecvEcnCnt_debug();
-	vpRecvEcnCnt_debug();
-	ipECE_debug();
-	vpSendCnt_debug();
+	// vpCARecvEcnCnt_debug();
+	// vpRecvEcnCnt_debug();
+	// ipECE_debug();
+	// vpSendCnt_debug();
 
 	hdr_ip* iph = hdr_ip::access(p);
 	hdr_cmn* cmnh = hdr_cmn::access(p);
@@ -603,8 +603,8 @@ struct vp_record* CLOVEProcessor::vp_next()
 		// fprintf(stderr, "[clove-processor vp_next] max_vp=%d  \n", max_vp->hashkey);
 	}
 
-	vpWeight_debug();
-	vpCWeight_debug();
+	// vpWeight_debug();
+	// vpCWeight_debug();
 
 	return max_vp;
 }

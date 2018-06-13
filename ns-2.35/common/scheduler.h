@@ -60,7 +60,8 @@ public:
 	Handler* handler_;	/* handler to call when event ready */
 	double time_;		/* time at which event is ready */
 	scheduler_uid_t uid_;	/* unique ID */
-	Event() : time_(0), uid_(0) {}
+	char* name_;
+	Event() : time_(0), uid_(0), name_("Normal Event") {}
 };
 
 /*

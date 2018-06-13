@@ -65,11 +65,12 @@
 #include "hermes-processor.h"
 
 // define for hermes
-#define ECN_PCNT 	((int)100)
+#define ECN_PCNT 	((int)10)
 #define TH_ECN		((double)0.4)
 #define TH_RTT_HIGH	((double)1.6E-4)
 #define TH_RTT_LOW	((double)1E-4)
-#define T_ECN_EXPIRE	((double)1E-5)
+#define T_ECN_EXPIRE	((double)1)
+#define T_REFRESH  	((double)1E-4)
 
 // vp rrate reduce when received ecn 
 #define Hermes_WR	((double)3)
@@ -84,7 +85,7 @@
 // Eraser Code Module enabled/disabled
 #define EC_Module 0
 
-#define T_REFRESH  	((double)PRE_RTT)
+
 #define T_RTIME		((double)PRE_RTT * 5)
 #define T_RSSTIME	((double)PRE_RTT * 5)
 #define T_RSSMAX	((double)PRE_RTT * 3000)
@@ -97,15 +98,15 @@
 #define BURST_PKTCNT	((int)10)
 #define INIT_RRATE 	((double)830000)
 
-// void HermesProcessorTimer::expire(Event *e)
-// {
-// 	a_->expire(e);
-// }
+void HermesProcessorTimer::expire(Event *e)
+{
+	a_->expire(e);
+}
 
 
 HermesProcessor::HermesProcessor(Node* node, Classifier* classifier, Hermes* hermes, int src, int dst, int size)
  : n_(node), c_(classifier), hermes_(hermes)
- // , pt_(this)
+ 	, pt_(this)
  	, src_(src), dst_(dst), VP_SIZE(size)
  	, flag(0), cost_flag(0), hashkey_counter(0)
  	, ece_cnt(0), max_ece_cnt(1), burst_pending(0), burst_vp(NULL)
@@ -120,11 +121,11 @@ HermesProcessor::HermesProcessor(Node* node, Classifier* classifier, Hermes* her
 
 	init_ca_response(&global_response);
 
-	// pt_.sched(T_REFRESH);
+	pt_.sched(T_REFRESH);
 
-	stringstream dir; 
-	dir << "Hermes/" << src_;
-	mkdir(dir.str().c_str(),0777);
+	// stringstream dir; 
+	// dir << "Hermes/" << src_;
+	// mkdir(dir.str().c_str(),0777);
 
 
 
@@ -286,17 +287,19 @@ int HermesProcessor::recv(Packet* p, Handler*h)
 
 int HermesProcessor::send(Packet* p, Handler*h)
 {
-	vpCARecvEcnCnt_debug();
-	vpRecvEcnCnt_debug();
-	ipECE_debug();
-	vpSendCnt_debug();
-	vpRecvRTT_debug();
-	vpCARecvRTT_debug();
-	vpWeight_debug();
-	vpCWeight_debug();
-	vpRecvEcnRatio_debug();
-	vpCARecvEcnRatio_debug();
-	vpRank_debug();
+	// vpCARecvEcnCnt_debug();
+	// vpRecvEcnCnt_debug();
+	// ipECE_debug();
+	// vpSendCnt_debug();
+	// vpRecvRTT_debug();
+	// vpCARecvRTT_debug();
+	// vpWeight_debug();
+	// vpCWeight_debug();
+	// vpRecvEcnRatio_debug();
+	// vpCARecvEcnRatio_debug();
+	// vpRank_debug();
+	// vpSendNew_debug();
+	// vpRate_debug();
 
 	hdr_ip* iph = hdr_ip::access(p);
 	hdr_cmn* cmnh = hdr_cmn::access(p);
@@ -318,6 +321,7 @@ int HermesProcessor::send(Packet* p, Handler*h)
 
 	// record 
 	vp->ca_row.send_cnt += 1;
+	vp->ca_row.send_undefined += 1;
 
 	// VP & CA
 	// response
@@ -358,38 +362,35 @@ int HermesProcessor::send(Packet* p, Handler*h)
 	return 0;
 }
 
-// void HermesProcessor::expire(Event *e)
-// {	
-// 	// flow_debug("\n[hermes-processor expire]\n","Send");
-// 	// flow_debug("\n[hermes-processor expire]\n","Recv");
+void HermesProcessor::expire(Event *e)
+{	
+	// flow_debug("\n[hermes-processor expire]\n","Send");
+	// flow_debug("\n[hermes-processor expire]\n","Recv");
 
-// 	// vpcost_debug(1);
-// 	// vpsend_debug();
-// 	// 1. foreach : update table row
-// 	update_ca_record(&global_ca);
+	// vpcost_debug(1);
+	// vpsend_debug();
+	// 1. foreach : update table row
+	// update_ca_record(&global_ca);
 
-// 	double now = Scheduler::instance().clock();
-// 	map < unsigned, struct vp_record* > :: iterator it = vp_map.begin();
+	double now = Scheduler::instance().clock();
 
-// 	while (it != vp_map.end())
-// 	{
-// 		if (now - it->second->ca_row.fresh_time > T_VP_EXPIRE)
-// 		{
-// 			unsigned hashkey = it->first;
-// 			++it;
-// 			vp_free(hashkey);
-// 			continue;
-// 		}
+	struct vp_record* vp = NULL;
+	map < unsigned, struct vp_record* > :: iterator it = vp_map.begin();
 
-// 		update_ca_record(&it->second->ca_row);
-// 		++it;
-// 	}
+	for ( ; it != vp_map.end(); ++it)
+	{
+		vp = it->second;
+
+		vp->ca_row.rate = (double)vp->ca_row.send_undefined / T_REFRESH;
+
+		vp->ca_row.send_undefined = 0;
+	}
 
 // 	// vpt_debug();
 
 // 	// 2. resched()
-// 	pt_.resched(T_REFRESH);
-// }
+	pt_.resched(T_REFRESH);
+}
 
 struct vp_record* HermesProcessor::vp_alloc()
 {
@@ -655,46 +656,46 @@ struct vp_record* HermesProcessor::vp_next()
 
 	if (good.size() > 0)
 	{
-		vp = good[rand() % good.size()];
-		// sit = good.begin(); 
-		// vp = *sit;
+		// vp = good[rand() % good.size()];
+		sit = good.begin(); 
+		vp = *sit;
 
-		// for ( ; sit != good.end(); sit++)
-		// {
-		// 	if ((*sit)->ca_row.send_cnt < vp->ca_row.send_cnt)
-		// 	{
-		// 		vp = *sit;
-		// 	}
-		// }
+		for ( ; sit != good.end(); sit++)
+		{
+			if ((*sit)->ca_row.send_undefined < vp->ca_row.send_undefined)
+			{
+				vp = *sit;
+			}
+		}
 
 	}
 	else if (grey.size() > 0)
 	{
-		vp = grey[rand() % grey.size()];
-		// sit = grey.begin(); 
-		// vp = *sit;
+		// vp = grey[rand() % grey.size()];
+		sit = grey.begin(); 
+		vp = *sit;
 
-		// for ( ; sit != grey.end(); sit++)
-		// {
-		// 	if ((*sit)->ca_row.send_cnt < vp->ca_row.send_cnt)
-		// 	{
-		// 		vp = *sit;
-		// 	}
-		// }
+		for ( ; sit != grey.end(); sit++)
+		{
+			if ((*sit)->ca_row.send_undefined < vp->ca_row.send_undefined)
+			{
+				vp = *sit;
+			}
+		}
 	}
 	else if (cong.size() > 0)
 	{
-		vp = cong[rand() % cong.size()];
-		// sit = cong.begin(); 
-		// vp = *sit;
+		// vp = cong[rand() % cong.size()];
+		sit = cong.begin(); 
+		vp = *sit;
 
-		// for ( ; sit != cong.end(); sit++)
-		// {
-		// 	if ((*sit)->ca_row.send_cnt < vp->ca_row.send_cnt)
-		// 	{
-		// 		vp = *sit;
-		// 	}
-		// }
+		for ( ; sit != cong.end(); sit++)
+		{
+			if ((*sit)->ca_row.send_undefined < vp->ca_row.send_undefined)
+			{
+				vp = *sit;
+			}
+		}
 	}
 	else 
 	{
@@ -1430,36 +1431,36 @@ void HermesProcessor::vpSendCnt_debug()
 //     // fprintf(time_rf, "[vpRecvCnt_debug elapse %lf]\n", elapsed_secs);
 // }
 
-// void HermesProcessor::vpSendNew_debug()
-// {
-// 	clock_t begin_time = clock();
+void HermesProcessor::vpSendNew_debug()
+{
+	// clock_t begin_time = clock();
 	
-// 	char str1[128];
-// 	memset(str1,0,128*sizeof(char));
-// 	sprintf(str1,"Hermes/%d/VPSend*-%d.tr",src_,dst_);
-// 	FILE* fpResult=fopen(str1,"a+");
-// 	if(fpResult==NULL)
-//     {
-//         fprintf(stderr,"Can't open file %s!\n",str1);
-//         return;
-//     	// return(TCL_ERROR);
-//     } 
-// 	map < unsigned, struct vp_record* > :: iterator it = vp_map.begin();
-//     fprintf(fpResult, "%lf ",Scheduler::instance().clock());
+	char str1[128];
+	memset(str1,0,128*sizeof(char));
+	sprintf(str1,"Hermes/%d/VPSend*-%d.tr",src_,dst_);
+	FILE* fpResult=fopen(str1,"a+");
+	if(fpResult==NULL)
+    {
+        fprintf(stderr,"Can't open file %s!\n",str1);
+        return;
+    	// return(TCL_ERROR);
+    } 
+	map < unsigned, struct vp_record* > :: iterator it = vp_map.begin();
+    fprintf(fpResult, "%lf ",Scheduler::instance().clock());
 
-//     for ( ; it != vp_map.end(); ++it)
-//     {
-//     	fprintf(fpResult, "%u ",it->second->ca_row.send_undefined);
-//     }
-//     fprintf(fpResult, "\n");
-// 	fclose(fpResult);
+    for ( ; it != vp_map.end(); ++it)
+    {
+    	fprintf(fpResult, "%u ",it->second->ca_row.send_undefined);
+    }
+    fprintf(fpResult, "\n");
+	fclose(fpResult);
 
 
-// 	clock_t end_time = clock();
-//   	double elapsed_secs = double(end_time - begin_time) / CLOCKS_PER_SEC;
+	// clock_t end_time = clock();
+ //  	double elapsed_secs = double(end_time - begin_time) / CLOCKS_PER_SEC;
     
-//     // fprintf(time_rf, "[vpSendNew_debug elapse %lf]\n", elapsed_secs);
-// }
+    // fprintf(time_rf, "[vpSendNew_debug elapse %lf]\n", elapsed_secs);
+}
 
 
 // void HermesProcessor::vpRecvNew_debug()
@@ -1529,6 +1530,33 @@ void HermesProcessor::vpSendCnt_debug()
     
 //     // fprintf(time_rf, "[vpFlying_debug elapse %lf]\n", elapsed_secs);
 // }
+
+void HermesProcessor::vpRate_debug()
+{
+
+	char str1[128];
+	memset(str1,0,128*sizeof(char));
+	sprintf(str1,"Hermes/%d/VPRate-%d.tr",src_,dst_);
+	FILE* fpResult=fopen(str1,"a+");
+	if(fpResult==NULL)
+    {
+        fprintf(stderr,"Can't open file %s!\n",str1);
+        return;
+    	// return(TCL_ERROR);
+    } 
+
+
+	map < unsigned, struct vp_record* > :: iterator it = vp_map.begin();
+    fprintf(fpResult, "%lf ",Scheduler::instance().clock());
+
+    for ( ; it != vp_map.end(); ++it)
+    {
+    	fprintf(fpResult, "%lf ",it->second->ca_row.rate);
+    }
+    
+    fprintf(fpResult, "\n");
+	fclose(fpResult);
+}
 
 
 void HermesProcessor::vpCWeight_debug()

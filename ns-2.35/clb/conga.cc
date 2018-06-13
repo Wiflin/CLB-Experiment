@@ -96,8 +96,8 @@ int Conga::route(Packet* p, Classifier* c_)
 
 
 	//debug start!
-	RT_debug(dst);
-	RTC_debug(dst);
+	// RT_debug(dst);
+	// RTC_debug(dst);
 	//debug end!
 
 	vector < int > tmp;
@@ -161,11 +161,11 @@ int Conga::route(Packet* p, Classifier* c_)
 		};
 	}
 
-	if (route_debug_)
-		route_debug(p, r_);
+	// if (route_debug_)
+	// 	route_debug(p, r_);
  	
- 	if (all_pkts_debug_)
- 		packet_debug(p, r_);
+ // 	if (all_pkts_debug_)
+ // 		packet_debug(p, r_);
 
  	// route count  
  	map < int, int* > :: iterator rtc_it = route_count_.find(dst);
@@ -174,8 +174,8 @@ int Conga::route(Packet* p, Classifier* c_)
  		route_count_[dst] = new int[slots_]();
  	}
  	
- 	fprintf(stderr, "node-%d %lf choose %d\n",n_->address(), Scheduler::instance().clock(), r_);
- 	fflush(stderr);
+ 	// fprintf(stderr, "node-%d %lf choose %d\n",n_->address(), Scheduler::instance().clock(), r_);
+ 	// fflush(stderr);
  	// record route result
  	route_count_[dst][r_] += 1;
 
