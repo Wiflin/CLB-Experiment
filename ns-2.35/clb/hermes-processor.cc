@@ -67,10 +67,11 @@
 // define for hermes
 #define ECN_PCNT 	((int)10)
 #define TH_ECN		((double)0.4)
-#define TH_RTT_HIGH	((double)1.6E-4)
+#define TH_RTT_HIGH	((double)1.5E-4)
 #define TH_RTT_LOW	((double)1E-4)
-#define T_ECN_EXPIRE	((double)1)
-#define T_REFRESH  	((double)1E-4)
+#define TH_BIAS		((double)5E-5)
+// #define T_ECN_EXPIRE	((double)1)
+#define T_REFRESH  	((double)3E-4)
 
 // vp rrate reduce when received ecn 
 #define Hermes_WR	((double)3)
@@ -268,7 +269,7 @@ int HermesProcessor::recv(Packet* p, Handler*h)
 		return 0;
 	}
 
-	response->recv_rtt = Scheduler::instance().clock() - cmnh->hermes_row.vp_time;
+	response->recv_rtt = Scheduler::instance().clock() - cmnh->hermes_row.vp_time + ((double) rand() / (RAND_MAX))*TH_BIAS;
 
 	response->ecn_bitmap.push_back(bool(hdr_flags::access(p)->ce()));
 	while (response->ecn_bitmap.size() > ECN_PCNT)
@@ -334,12 +335,12 @@ int HermesProcessor::send(Packet* p, Handler*h)
 		hermes_ren = 1;
 
 		// caculate ratio
-		if (Scheduler::instance().clock() - ca->ecn_time > T_ECN_EXPIRE)
-		{
-			ca->ecn_bitmap.push_back(0);
-			while (ca->ecn_bitmap.size() > ECN_PCNT)
-				ca->ecn_bitmap.erase(ca->ecn_bitmap.begin());
-		}
+		// if (Scheduler::instance().clock() - ca->ecn_time > T_ECN_EXPIRE)
+		// {
+		// 	ca->ecn_bitmap.push_back(0);
+		// 	while (ca->ecn_bitmap.size() > ECN_PCNT)
+		// 		ca->ecn_bitmap.erase(ca->ecn_bitmap.begin());
+		// }
 
 		int ecn_cnt = 0;
 		for (int i = 0; i < ca->ecn_bitmap.size(); ++i)

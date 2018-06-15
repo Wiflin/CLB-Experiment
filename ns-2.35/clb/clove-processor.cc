@@ -68,7 +68,7 @@
 #define CLOVE_WR	((double)3)
 #define CLOVE_WI	((double)100)
 #define PRE_RTT		((double)1.6E-4)
-#define T_WEIGHT_EXPIRE	((double)PRE_RTT * 15)
+#define T_WEIGHT_EXPIRE	((double)PRE_RTT * 200)
 
 // Virtual Path Module enabled/disabled
 #define VP_Module 1
@@ -115,9 +115,9 @@ CLOVEProcessor::CLOVEProcessor(Node* node, Classifier* classifier, CLOVE* clove,
 
 	// pt_.sched(T_REFRESH);
 
-	// stringstream dir; 
-	// dir << "CLOVE/" << src_;
-	// mkdir(dir.str().c_str(),0777);
+	stringstream dir; 
+	dir << "CLOVE/" << src_;
+	mkdir(dir.str().c_str(),0777);
 
 
 
@@ -206,7 +206,7 @@ int CLOVEProcessor::recv(Packet* p, Handler*h)
 			// vp_ecn feedback
 			if (cmnh->clove_row.vp_recn == 1)
 			{
-				if (vp->ca_row.weight > 1 && now - vp->ca_row.r_time > 20*PRE_RTT)
+				if (vp->ca_row.weight > 1 && now - vp->ca_row.r_time > 5*PRE_RTT)
 				{
 					vp->ca_row.weight -= (vp->ca_row.weight / 3);
 					// vp->ca_row.weight = 0;
@@ -256,6 +256,9 @@ int CLOVEProcessor::send(Packet* p, Handler*h)
 	// vpRecvEcnCnt_debug();
 	// ipECE_debug();
 	// vpSendCnt_debug();
+
+	// vpWeight_debug();
+	// vpCWeight_debug();
 
 	hdr_ip* iph = hdr_ip::access(p);
 	hdr_cmn* cmnh = hdr_cmn::access(p);
@@ -573,13 +576,13 @@ struct vp_record* CLOVEProcessor::vp_next()
 		struct ca_record* car = &it->second->ca_row;
 
 		// check age 
-		// if (now - car->r_time > T_WEIGHT_EXPIRE && car->weight != CLOVE_WI)
-		// {
-		// 	car->weight = CLOVE_WI;
-		// 	// car->r_time = now;
+		if (now - car->r_time > T_WEIGHT_EXPIRE && car->weight != CLOVE_WI)
+		{
+			car->weight = CLOVE_WI;
+			// car->r_time = now;
 
-		// 	// fprintf(stderr, "[clove-processor vp_next] vp weight refresh %d %d\n", it->second->hashkey, car->weight);
-		// }
+			// fprintf(stderr, "[clove-processor vp_next] vp weight refresh %d %d\n", it->second->hashkey, car->weight);
+		}
 
 		car->current_weight += car->weight;
 		total += car->weight;
@@ -603,8 +606,7 @@ struct vp_record* CLOVEProcessor::vp_next()
 		// fprintf(stderr, "[clove-processor vp_next] max_vp=%d  \n", max_vp->hashkey);
 	}
 
-	// vpWeight_debug();
-	// vpCWeight_debug();
+
 
 	return max_vp;
 }

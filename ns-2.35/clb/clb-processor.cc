@@ -74,7 +74,8 @@
 #define PRE_RTT		((double)1.6E-4)
 #define T_REFRESH  	((double)PRE_RTT)
 #define T_RTIME		((double)PRE_RTT * 5)
-#define T_RSSTIME	((double)PRE_RTT * 5)
+#define T_RSSTIME	((double)PRE_RTT * 200)
+// #define T_RSSTIME	((double)1)
 #define T_RSSMAX	((double)PRE_RTT * 3000)
 #define T_VP_EXPIRE	((double)0.5)
 #define T_BURST_EXPIRE	((double)PRE_RTT * 15)
@@ -84,6 +85,9 @@
 #define COST_EQUAL  ((double)1E-4)
 #define BURST_PKTCNT	((int)10)
 #define INIT_RRATE 	((double)830000)
+
+#define SegmentFaultKiller(x) if((x)==NULL) \
+{fprintf(stderr, "[SegmentFault] %s->%s ptr=NULL\n", __FILE__, __LINE__);}
 
 void CLBProcessorTimer::expire(Event *e)
 {
@@ -242,7 +246,7 @@ int CLBProcessor::recv(Packet* p, Handler*h)
 
 	// debug!
 	ece_cnt += hdr_flags::access(p)->ecnecho();
-	vpRecvEcnCnt_debug();
+	// vpRecvEcnCnt_debug();
 
 	// clock_t end_time = clock();
  //  	double elapsed_secs = double(end_time - begin_time) / CLOCKS_PER_SEC;
@@ -256,15 +260,15 @@ int CLBProcessor::send(Packet* p, Handler*h)
 {
 	// clock_t begin_time = clock();
 	// vpcost_debug();
-	vpSendCnt_debug();
-	vpRecvCnt_debug();
-	vpSendNew_debug();
-	vpRecvNew_debug();
-	// vpFlying_debug();
-	vpRate_debug();
-	vpRRate_debug();
-	ipECE_debug();
-	vpECE_debug();
+	// vpSendCnt_debug();
+	// vpRecvCnt_debug();
+	// vpSendNew_debug();
+	// vpRecvNew_debug();
+	// // vpFlying_debug();
+	// vpRate_debug();
+	// vpRRate_debug();
+	// ipECE_debug();
+	// vpECE_debug();
 
 
 	if ((VP_Module | CA_Module) == 0)
@@ -355,10 +359,10 @@ int CLBProcessor::send(Packet* p, Handler*h)
  //  	double elapsed_secs = double(end_time - begin_time) / CLOCKS_PER_SEC;
 	// fprintf(time_rf, "[clb-processor send  elapse %lf]\n", elapsed_secs);
 
-	if (clb_burst_id > 0)
-	{
-		vpBurstSend_debug(p);
-	}
+	// if (clb_burst_id > 0)
+	// {
+	// 	vpBurstSend_debug(p);
+	// }
 
 	return 0;
 }
@@ -378,13 +382,13 @@ void CLBProcessor::expire(Event *e)
 
 	while (it != vp_map.end())
 	{
-		if (now - it->second->ca_row.fresh_time > T_VP_EXPIRE)
-		{
-			unsigned hashkey = it->first;
-			++it;
-			vp_free(hashkey);
-			continue;
-		}
+		// if (now - it->second->ca_row.fresh_time > T_VP_EXPIRE)
+		// {
+		// 	unsigned hashkey = it->first;
+		// 	++it;
+		// 	vp_free(hashkey);
+		// 	continue;
+		// }
 
 		update_ca_record(&it->second->ca_row);
 		++it;
@@ -677,9 +681,9 @@ struct vp_record* CLBProcessor::vp_next_at_ratio_SWRR()
 struct vp_record* CLBProcessor::vp_next()
 {
 	struct vp_record* vp = vp_next_at_ratio_SWRR();
-	fprintf(stderr, "return vp=%p\n", vp);
-	fflush(stderr);
-	fprintf(stderr, " hashkey=%u\n", vp->hashkey);
+	// fprintf(stderr, "return vp=%p\n", vp);
+	// fflush(stderr);
+	// fprintf(stderr, " hashkey=%u\n", vp->hashkey);
 	return vp;
 }
 
@@ -755,11 +759,11 @@ struct ca_response* CLBProcessor::ca_next()
 		if (ca_map.count(t) == 0)
 			continue;
 
-		if (Scheduler::instance().clock() - ca_map[t]->time > T_VP_EXPIRE)
-		{
-			ca_free(t);
-			continue;
-		}
+		// if (Scheduler::instance().clock() - ca_map[t]->time > T_VP_EXPIRE)
+		// {
+		// 	ca_free(t);
+		// 	continue;
+		// }
 
 		ca_queue.push(t);
 		return ca_map[t];
@@ -877,7 +881,9 @@ void CLBProcessor::vp_update_rrate(struct vp_record* vp, Packet* p)
 
 		ca->recv_ece_cnt += 1;
 
-		ca->r_time = now - (T_RSSTIME - PRE_RTT);
+		ca->r_time = now;
+
+		// ca->r_time = now - (T_RSSTIME - 5*PRE_RTT);
 
 		if (ca->recv_ece_cnt > max_ece_cnt)
 			max_ece_cnt = ca->recv_ece_cnt;
@@ -986,10 +992,10 @@ void CLBProcessor::update_ca_burst(struct ca_response* response, Packet* p)
 		cmnh->clb_row.vp_rid = response->hashkey;
 		cmnh->clb_row.burst_rate = r_rate;
 
-		char debug[300];
-		sprintf(debug, "%lf %d-%d (vp %u) start=%lf cnt=%d time=%lf new_rate=%lf\n", now,
-		 hdr_ip::access(rp)->dst_.addr_, n_->address(),  response->hashkey, response->burst_time, response->burst_cnt, delta_time, r_rate);
-		vpBurst_debug(debug);
+		// char debug[300];
+		// sprintf(debug, "%lf %d-%d (vp %u) start=%lf cnt=%d time=%lf new_rate=%lf\n", now,
+		//  hdr_ip::access(rp)->dst_.addr_, n_->address(),  response->hashkey, response->burst_time, response->burst_cnt, delta_time, r_rate);
+		// vpBurst_debug(debug);
 
 
 		NsObject* target = c_->find(rp);
