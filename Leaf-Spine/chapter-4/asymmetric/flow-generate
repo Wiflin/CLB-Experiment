@@ -1,9 +1,0 @@
-#!/bin/bash
-
-for i in `seq 0.1 0.1 1`
-do 
-
-	 `./Complicated-AlltoAll-datamining-RMT-FatTree-long-connection.pl $i 123456`
-
-
-done 

@@ -5,7 +5,10 @@ methods=("ECMP" "CLB" "CLOVE" "HERMES" "CONGA")
 
 for method in ${methods[@]}
 do
+	rm -rf $method
 	mkdir $method
-	cp InputFlow-30-20-load-1.tr part1.tcl test-bash $method
- 	
+	cp InputFlow-30-2-load-1.tr part1.tcl test-bash $method
+	cd $method
+	./test-bash $method 1 2 &
+	cd ../
 done

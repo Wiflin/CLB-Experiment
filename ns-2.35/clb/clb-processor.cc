@@ -120,9 +120,9 @@ CLBProcessor::CLBProcessor(Node* node, Classifier* classifier, CLB* clb, int src
 
 	vp_init();
 
-	char str1[128];
-	sprintf(str1,"[constructor] %lf node=%d src=%d dst=%d",Scheduler::instance().clock(),n_->address(),src_,dst_);
-	flow_debug(str1,"Record");
+	// char str1[128];
+	// sprintf(str1,"[constructor] %lf node=%d src=%d dst=%d",Scheduler::instance().clock(),n_->address(),src_,dst_);
+	// flow_debug(str1,"Record");
 
 
 	// char str2[128];
@@ -417,9 +417,9 @@ struct vp_record* CLBProcessor::vp_alloc()
 	vp_map[hashkey] = vp;
 
 
-	char str1[128];
-	sprintf(str1,"[vp_alloc]\t%lf\t%8d\t%p\t%lf\t%u",Scheduler::instance().clock(),hashkey,vp,cost(&vp->ca_row),vp->ca_row.recv_ece_cnt);
-	flow_debug(str1,"Record");
+	// char str1[128];
+	// sprintf(str1,"[vp_alloc]\t%lf\t%8d\t%p\t%lf\t%u",Scheduler::instance().clock(),hashkey,vp,cost(&vp->ca_row),vp->ca_row.recv_ece_cnt);
+	// flow_debug(str1,"Record");
 
 
 	return vp;

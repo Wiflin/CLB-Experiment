@@ -91,11 +91,11 @@ set queueLeafSwitch 400
 set queueManage "DropTail"
 set ecnThresholdPortion 0.3
 
-set sendBufferSize	80
+set sendBufferSize	800
 set ecnThresholdPortionLeaf 0.3
 
 set linkRate	10G
-set linkAccessRate 	2G
+set linkAccessRate 	20G
 # 0.02 ms
 set linkDelay 	0.02 
 # 
@@ -181,8 +181,8 @@ $ns ecn-threshold $sSpine(0) $sLeaf(0) [expr int($queueSpineSwitch*$ecnThreshold
 
 set queueA [[$ns link $sLeaf(0) $sSpine(0)] queue]
 # $queueA monitor-QueueLen
-# $queueA monitor-FlowSpeed
-# $queueA monitor-FlowPath
+$queueA monitor-FlowSpeed
+$queueA monitor-FlowPath
 
 
 # 0 -> 1
@@ -195,8 +195,8 @@ $ns ecn-threshold $sSpine(1) $sLeaf(0) [expr int($queueSpineSwitch*$ecnThreshold
 
 set queueB [[$ns link $sLeaf(0) $sSpine(1)] queue]
 # $queueB monitor-QueueLen
-# $queueB monitor-FlowSpeed
-# $queueB monitor-FlowPath
+$queueB monitor-FlowSpeed
+$queueB monitor-FlowPath
 
 # 0 -> 2
 # $ns simplex-link $sLeaf(0) $sSpine(2) 10G 0.00002s $queueManage	
@@ -219,16 +219,16 @@ set queueB [[$ns link $sLeaf(0) $sSpine(1)] queue]
 # $queueD monitor-QueueLen
 
 # 1 -> 0
-$ns simplex-link $sLeaf(1) $sSpine(0) 5G 0.00002s $queueManage	
-$ns queue-limit $sLeaf(1) $sSpine(0) 200
+$ns simplex-link $sLeaf(1) $sSpine(0) 2G 0.00002s $queueManage	
+$ns queue-limit $sLeaf(1) $sSpine(0) 80
 $ns ecn-threshold $sLeaf(1) $sSpine(0) [expr int(200*$ecnThresholdPortion)]
-$ns simplex-link $sSpine(0) $sLeaf(1) 5G 0.00002s $queueManage
-$ns queue-limit $sSpine(0) $sLeaf(1) 200
+$ns simplex-link $sSpine(0) $sLeaf(1) 2G 0.00002s $queueManage
+$ns queue-limit $sSpine(0) $sLeaf(1) 80
 $ns ecn-threshold $sSpine(0) $sLeaf(1) [expr int(200*$ecnThresholdPortion)]
 set queueC [[$ns link $sLeaf(1) $sSpine(0)] queue]
 # $queueC monitor-QueueLen
-# $queueC monitor-FlowSpeed
-# $queueC monitor-FlowPath
+$queueC monitor-FlowSpeed
+$queueC monitor-FlowPath
 
 # 1 -> 1
 $ns simplex-link $sLeaf(1) $sSpine(1) $linkRate 0.00002s $queueManage	
@@ -239,8 +239,8 @@ $ns queue-limit $sSpine(1) $sLeaf(1) $queueSpineSwitch
 $ns ecn-threshold $sSpine(1) $sLeaf(1) [expr int($queueSpineSwitch*$ecnThresholdPortion)]
 set queueD [[$ns link $sLeaf(1) $sSpine(1)] queue]
 # $queueD monitor-QueueLen
-# $queueD monitor-FlowSpeed
-# $queueD monitor-FlowPath
+$queueD monitor-FlowSpeed
+$queueD monitor-FlowPath
 
 # 1 -> 2
 # $ns simplex-link $sLeaf(1) $sSpine(2) 10G 0.00002s $queueManage	
@@ -269,8 +269,8 @@ $ns ecn-threshold $sSpine(0) $sLeaf(2) [expr int($queueSpineSwitch*$ecnThreshold
 
 set queueH [[$ns link $sSpine(0) $sLeaf(2)] queue]
 # $queueH monitor-QueueLen
-# $queueH monitor-FlowSpeed
-# $queueH monitor-FlowPath
+$queueH monitor-FlowSpeed
+$queueH monitor-FlowPath
 
 # 2 -> 1
 $ns simplex-link $sLeaf(2) $sSpine(1) $linkRate 0.00002s $queueManage	
@@ -282,8 +282,8 @@ $ns ecn-threshold $sSpine(1) $sLeaf(2) [expr int($queueSpineSwitch*$ecnThreshold
 
 set queueI [[$ns link $sSpine(1) $sLeaf(2)] queue]
 # $queueI monitor-QueueLen
-# $queueI monitor-FlowSpeed
-# $queueI monitor-FlowPath
+$queueI monitor-FlowSpeed
+$queueI monitor-FlowPath
 
 # $sLeaf(0) conga-queue "0" $queueA
 # $sLeaf(0) conga-queue "1" $queueB
@@ -443,7 +443,7 @@ for {set k 0} {$k<$flowNumber} {incr k} {
 		# $tcp($currentInsertingConnID) monitor-spare-window
 
 		# $tcp($currentInsertingConnID) monitor-Sequence
-		# $tcp($currentInsertingConnID) monitor-Speed
+		$tcp($currentInsertingConnID) monitor-Speed
 		# $tcpsink($currentInsertingConnID) monitor-Sequence
 
 		$tcp($currentInsertingConnID) no-syn sender
