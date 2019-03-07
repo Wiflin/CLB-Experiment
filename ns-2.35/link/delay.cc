@@ -40,6 +40,9 @@ static const char rcsid[] =
 #include "delay.h"
 #include "mcast_ctrl.h"
 #include "ctrMcast.h"
+#include <iostream>
+#include <sstream>
+#include <sys/stat.h> 
 
 static class LinkDelayClass : public TclClass {
 public:
@@ -60,6 +63,10 @@ LinkDelay::LinkDelay()
 	bind_bool("avoidReordering_", &avoidReordering_);
 	bind("fromNodeID_",&fromNodeID_);///CG add
 	bind("toNodeID_",&toNodeID_);///CG add
+
+
+	// mkdir("DelayLink",0777);
+	// system("exec rm -r -f DelayLink/*");
 }
 
 int LinkDelay::command(int argc, const char*const* argv)
@@ -123,6 +130,8 @@ void LinkDelay::recv(Packet* p, Handler* h)
 	}
 	//WF add end!
 
+	// printRecv(p);
+
 	double txt = txtime(p);
 	// fprintf(stderr, "%lf %d-%d %lf\n",Scheduler::instance().clock(),fromNodeID_, toNodeID_, bandwidth_ );
 	Scheduler& s = Scheduler::instance();
@@ -131,6 +140,8 @@ void LinkDelay::recv(Packet* p, Handler* h)
 		e->time_= txt + delay_;
 		itq_->enque(p); // for convinience, use a queue to store packets in transit
 		s.schedule(this, p, txt + delay_);
+
+		// fprintf(stderr, "[delay link] dynamic_!  %lf\n", delay_);
 	} else if (avoidReordering_) {
 		// code from Andrei Gurtov, to prevent reordering on
 		//   bandwidth or delay changes
@@ -142,14 +153,21 @@ void LinkDelay::recv(Packet* p, Handler* h)
  			latest_time_ = now_ + txt + delay_;
  			s.schedule(target_, p, txt + delay_);
  		}
+
+
+		// fprintf(stderr, "[delay link] avoidReordering_!  %lf\n", delay_);
 	} else {
 		s.schedule(target_, p, txt + delay_);
+
+
+		// fprintf(stderr, "[delay link] static!  %lf\n", delay_);
 	}
 	s.schedule(h, &intr_, txt);
 }
 
 void LinkDelay::send(Packet* p, Handler*)
 {
+	// printRecv(p);
 	target_->recv(p, (Handler*) NULL);
 }
 
@@ -212,4 +230,56 @@ void LinkDelay::pktintran(int src, int group)
 		}
 	}
         //printf ("%f %d %d %d %d\n", Scheduler::instance().clock(), total_[0], total_[1], total_[2],total_[3]);
+}
+
+
+void LinkDelay::printRecv(Packet* p)
+{
+
+    hdr_ip *iph = hdr_ip::access(p);
+    hdr_cmn* cmnh = hdr_cmn::access(p);
+
+    char str1[128];
+	memset(str1,0,128*sizeof(char));
+	sprintf(str1,"DelayLink/Link_%d-%d.tr"
+		,fromNodeID_
+		,toNodeID_);
+
+	FILE* fpResult=fopen(str1,"a");
+	if(fpResult==NULL)
+	{
+		fprintf(stderr,"Can't open file %s!\n",str1);
+	}
+    
+    fprintf(fpResult,"%.9f\t recv %u %6u\n",
+        Scheduler::instance().clock()
+		,cmnh->size_,cmnh->ecmpHashKey);
+
+    fclose(fpResult);
+}
+
+
+void LinkDelay::printSend(Packet* p)
+{
+
+    hdr_ip *iph = hdr_ip::access(p);
+    hdr_cmn* cmnh = hdr_cmn::access(p);
+
+    char str1[128];
+	memset(str1,0,128*sizeof(char));
+	sprintf(str1,"DelayLink/Link_%d-%d.tr"
+		,fromNodeID_
+		,toNodeID_);
+
+	FILE* fpResult=fopen(str1,"a");
+	if(fpResult==NULL)
+	{
+		fprintf(stderr," Can't open file %s!\n",str1);
+	}
+    
+    fprintf(fpResult,"%.9f\t send %u %6u\n",
+        Scheduler::instance().clock()
+		,cmnh->size_,cmnh->ecmpHashKey);
+
+    fclose(fpResult);
 }

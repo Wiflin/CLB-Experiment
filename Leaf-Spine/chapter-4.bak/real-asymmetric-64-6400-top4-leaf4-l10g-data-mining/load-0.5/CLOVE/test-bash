@@ -1,0 +1,40 @@
+#!/bin/bash 
+
+clean() {
+	rm -rf FlowPath
+	rm -rf QueueLen
+	rm -rf DropPacket
+	rm -rf TcpSeq
+	rm -rf PathTrace
+	rm -rf FlowSpeed
+	rm -rf CLB
+	rm -rf CLOVE
+	rm -rf Hermes
+	rm -rf TCPSpeed
+	rm -f InputFlow-BindFlowID*
+	rm -f InputFlow-FCT*
+	rm -f tmp
+	rm -f error.tmp
+	rm -f All-Packet-Debug.tr
+}
+
+
+rtest() {
+	ns part1.tcl $1 $2 $3 >tmp 2>error.tmp
+}
+
+if [ "$1"x == "clean"x ];then
+	clean
+	echo "`pwd` clean finished"
+	exit
+fi
+
+if [ "$1"x == "plot"x ];then
+	python3 ../untitled2.py PathTrace/Flowid-$2.tr
+	exit
+fi
+
+
+# after all functor check
+clean
+rtest $1 $2 $3

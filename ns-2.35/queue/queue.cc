@@ -37,6 +37,7 @@ static const char rcsid[] =
     "@(#) $Header: /cvsroot/nsnam/ns-2/queue/queue.cc,v 1.29 2004/10/28 01:22:48 sfloyd Exp $ (LBL)";
 #endif
 
+#include "tcp.h"
 #include "queue.h"
 #include <ctime>
 #include <math.h>
@@ -221,7 +222,7 @@ void Queue::recv(Packet* p, Handler*)
 	double now = Scheduler::instance().clock();
 	enque(p);
 
-	printQueueLenTimeline(); ///CG add
+	printQueueLenTimeline(p); ///CG add
 
 	if (!blocked_) {
 		/*
@@ -232,7 +233,7 @@ void Queue::recv(Packet* p, Handler*)
 		 */
 		p = deque();
 
-		printQueueLenTimeline(); ///CG add
+		// printQueueLenTimeline(-1); ///CG add
 		if (p != 0) {
 			utilUpdate(last_change_, now, blocked_);
 			last_change_ = now;
@@ -413,7 +414,7 @@ void Queue::printDelayTimeline(Packet* pkt)///CG add
 }
 
 
-void Queue::printQueueLenTimeline()///CG add
+void Queue::printQueueLenTimeline(Packet* p)///CG add
 {
 	if(!ifMoniterQueueLen_)
     {
@@ -441,9 +442,13 @@ void Queue::printQueueLenTimeline()///CG add
 	}
 
     
-    fprintf(fpQueueLen,"%.9f\t%d\n",
+	hdr_tcp* tcph = hdr_tcp::access(p);
+
+
+    fprintf(fpQueueLen,"%.9f\t%d\t%d\n",
         Scheduler::instance().clock()
-        ,length());
+        ,length()
+        ,tcph->seqno());
 
     fclose(fpQueueLen);
 }
@@ -532,8 +537,9 @@ void Queue::printPathTrace(Packet* pkt)
 
     char str1[128];
 	memset(str1,0,128*sizeof(char));
-	sprintf(str1,"PathTrace/Flowid-%d.tr"
-		,cmnh->flowID);
+	sprintf(str1,"PathTrace/Queue%d-%d_PathTrace.tr"
+		,last_hop
+		,next_hop);
 
 	fpPathTrace=fopen(str1,"a");
 	if(fpPathTrace==NULL)
@@ -541,11 +547,9 @@ void Queue::printPathTrace(Packet* pkt)
 		fprintf(stderr,"%s, Can't open file %s!\n",strerror(errno),str1);
 	}
     
-    fprintf(fpPathTrace,"%.9f\t%d-%d %u\n",
+    fprintf(fpPathTrace,"%.9f\t %u %6u\n",
         Scheduler::instance().clock()
-        ,last_hop
-        ,next_hop
-		,cmnh->size_);
+		,cmnh->size_,cmnh->ecmpHashKey);
 
     fclose(fpPathTrace);
 }

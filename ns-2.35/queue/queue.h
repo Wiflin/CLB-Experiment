@@ -200,7 +200,7 @@ protected:
 				   period of util_check_intv_ seconds. */
 
    	int ifMoniterQueueLen_;///CG add
-	void printQueueLenTimeline();///CG add
+	void printQueueLenTimeline(Packet* p);///CG add
 	FILE * fpQueueLen;///CG add
 
 	int ifMoniterE2EDelay_;///CG add

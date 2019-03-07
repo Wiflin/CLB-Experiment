@@ -67,7 +67,7 @@
 Hermes::Hermes(Node* n, Classifier* c, int size) : n_(n), c_(c), vp_size(size)
 {
 	mkdir("Hermes",0777);
-	// system("exec rm -r -f Hermes/*");
+	system("exec rm -r -f Hermes/*");
 
 	char str1[128];
 	sprintf(str1,"[Constructor] %p",this);

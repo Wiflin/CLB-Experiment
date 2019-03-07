@@ -2076,6 +2076,7 @@ $ttl_ target [$link_ target]\n\
 $self ttl-drop-trace\n\
 $link_ target $ttl_\n\
 \n\
+\n\
 if { [$ns multicast?] } {\n\
 $self enable-mcast $src $dst\n\
 }\n\

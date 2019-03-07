@@ -73,18 +73,28 @@
 
 #define PRE_RTT		((double)1.6E-4)
 #define T_REFRESH  	((double)PRE_RTT)
-#define T_RTIME		((double)PRE_RTT * 5)
-#define T_RSSTIME	((double)PRE_RTT * 200)
-// #define T_RSSTIME	((double)1)
+// #define T_RTIME		((double)PRE_RTT * 5)
+#define T_RSSTIME	((double)PRE_RTT * 50)
+
+// if do not use probe, set infinity
+// #define T_RSSTIME	((double)20)
+
 #define T_RSSMAX	((double)PRE_RTT * 3000)
 #define T_VP_EXPIRE	((double)0.5)
 #define T_BURST_EXPIRE	((double)PRE_RTT * 15)
-#define RATE_ALPHA 	((double)0.3)
+#define RATE_ALPHA 	((double)1)
 #define FLY_ALPHA	((double)0.30)
+#define WEIGHT_ALPHA	((double)0.5)
 // #define VP_SIZE		((int)3)	
 #define COST_EQUAL  ((double)1E-4)
 #define BURST_PKTCNT	((int)10)
-#define INIT_RRATE 	((double)830000)
+#define INIT_RRATE 	((double)3333333)  // 1G = 83333
+
+
+
+// #define SEQ_MAX (1<<24)
+
+#define QID(x) ((x) % QUEUE_SIZE)
 
 #define SegmentFaultKiller(x) if((x)==NULL) \
 {fprintf(stderr, "[SegmentFault] %s->%s ptr=NULL\n", __FILE__, __LINE__);}
@@ -106,6 +116,10 @@ CLBProcessor::CLBProcessor(Node* node, Classifier* classifier, CLB* clb, int src
 
 	sequence = 0;
 
+	reorder_value = 1;
+
+	// max_ooo_num = 1;
+
 	init_ca_record(&global_ca);
 
 	init_ca_response(&global_response);
@@ -119,6 +133,53 @@ CLBProcessor::CLBProcessor(Node* node, Classifier* classifier, CLB* clb, int src
 
 
 	vp_init();
+
+	Init_PacketQueue();
+
+	int i = 0;
+	map < unsigned, struct vp_record* > :: iterator it = vp_map.begin();
+
+	// if (n_->address() == 0)
+	// {
+	// 	fprintf(stderr, " node 0 !\n");
+	// 	if (VP_SIZE == 2)
+	// 	{
+	// 		for (; it!=vp_map.end(); it++)
+	// 		{
+	// 			if (0 == i)
+	// 			{
+	// 				/// 10G
+	// 				it->second->ca_row.r_rate = 500000;
+	// 			}
+	// 			else 
+	// 			{
+	// 				it->second->ca_row.r_rate = 500000;
+	// 			}
+
+	// 			i++;
+	// 		}
+	// 	}
+	// }
+
+	// else if (n_->address() == 10)
+	// {
+	// 	if (VP_SIZE == 2)
+	// 	{
+	// 		for (; it!=vp_map.end(); it++)
+	// 		{
+	// 			if (0 == i)
+	// 			{
+	// 				it->second->ca_row.r_rate = 833333;
+	// 			}
+	// 			else 
+	// 			{
+	// 				it->second->ca_row.r_rate = 3333333;
+	// 			}
+
+	// 			i++;
+	// 		}
+	// 	}
+	// }
 
 	// char str1[128];
 	// sprintf(str1,"[constructor] %lf node=%d src=%d dst=%d",Scheduler::instance().clock(),n_->address(),src_,dst_);
@@ -199,13 +260,14 @@ int CLBProcessor::recv(Packet* p, Handler*h)
 
 
 				
-				if (cmnh->clb_row.burst_rate > 1
-					&& vp->ca_row.r_rate < cmnh->clb_row.burst_rate
-					)
+				if (cmnh->clb_row.burst_rate > 1 )
 				{
-					vp->ca_row.r_rate = cmnh->clb_row.burst_rate;
+					if(vp->ca_row.r_rate < cmnh->clb_row.burst_rate)
+					{
+						vp->ca_row.r_rate = cmnh->clb_row.burst_rate;
+					}
+					return 1;
 				}
-
 				else 
 				{
 					ca_record_recv(&vp->ca_row, cmnh->clb_row.vp_rcnt);
@@ -252,6 +314,9 @@ int CLBProcessor::recv(Packet* p, Handler*h)
  //  	double elapsed_secs = double(end_time - begin_time) / CLOCKS_PER_SEC;
 	// fprintf(time_rf, "[clb-processor recv  elapse %lf]\n", elapsed_secs);
 
+
+	return reorder(p);
+
 	return 0;
 }
 
@@ -260,13 +325,13 @@ int CLBProcessor::send(Packet* p, Handler*h)
 {
 	// clock_t begin_time = clock();
 	// vpcost_debug();
-	// vpSendCnt_debug();
+	vpSendCnt_debug();
 	// vpRecvCnt_debug();
 	// vpSendNew_debug();
 	// vpRecvNew_debug();
 	// // vpFlying_debug();
 	// vpRate_debug();
-	// vpRRate_debug();
+	vpRRate_debug();
 	// ipECE_debug();
 	// vpECE_debug();
 
@@ -363,6 +428,8 @@ int CLBProcessor::send(Packet* p, Handler*h)
 	// {
 	// 	vpBurstSend_debug(p);
 	// }
+
+	// packetSeq_debug(p);
 
 	return 0;
 }
@@ -650,8 +717,18 @@ struct vp_record* CLBProcessor::vp_next_at_ratio_SWRR()
 	{
 		struct ca_record* car = &it->second->ca_row;
 
-		car->c_rate += car->r_rate;
-		total 		+= car->r_rate;
+
+// changing here !
+		// double weight = WEIGHT_ALPHA * car->rate + (1 - WEIGHT_ALPHA) * (car->r_rate - car->rate);
+
+		double weight = car->r_rate;
+
+
+		car->c_rate += weight;
+		total 		+= weight;
+
+		// car->c_rate += car->r_rate;
+		// total 		+= car->r_rate;
 
 		if (car->c_rate > max_weight)
 		{
@@ -991,6 +1068,7 @@ void CLBProcessor::update_ca_burst(struct ca_response* response, Packet* p)
 		cmnh->clb_row.response_en = 1;
 		cmnh->clb_row.vp_rid = response->hashkey;
 		cmnh->clb_row.burst_rate = r_rate;
+		// cmnh->clb_row.SN_HSN = (++sequence);
 
 		// char debug[300];
 		// sprintf(debug, "%lf %d-%d (vp %u) start=%lf cnt=%d time=%lf new_rate=%lf\n", now,
@@ -1060,6 +1138,139 @@ Packet* CLBProcessor::pkt_alloc()
 
 	return p;
 
+}
+
+
+
+
+
+void CLBProcessor::Init_PacketQueue(void)
+{
+    int i;
+    for (i=0; i < QUEUE_SIZE; i++)
+    {
+        PacketQueue[i].flag = 0;
+    }
+}
+
+
+
+
+int CLBProcessor::Enqueue_PacketQueue(Packet* p)
+{  
+
+	hdr_ip* iph = hdr_ip::access(p);
+	hdr_cmn* cmnh = hdr_cmn::access(p);
+
+	int seq = cmnh->clb_row.SN_HSN;
+
+ 
+
+    // full of queue
+    if ( (seq - reorder_value) > QUEUE_SIZE)
+    {
+        fprintf(stderr, "Enque : queue is full.\n");
+
+        // dequeue all packets in the reorder buffer
+        int i=0;
+        int ret=0;
+        for( ; i < QUEUE_SIZE; i++)
+        {
+            if(PacketQueue[QID(reorder_value+i)].flag == 1)
+            {
+                PacketQueue[QID(reorder_value+i)].flag = 0;    
+            
+                // invoke okfn() to deliver packet up 
+                // (PacketQueue[QID(reorder_value)].okfn)(PacketQueue[QID(reorder_value)].net, 
+                //     PacketQueue[QID(reorder_value)].sk, 
+                //     PacketQueue[QID(reorder_value)].skb);
+
+
+                NsObject* target = c_->find(PacketQueue[QID(reorder_value+i)].reorder_p);
+				if (target == NULL)
+				 		Packet::free(PacketQueue[QID(reorder_value+i)].reorder_p);
+				else 
+					target->recv(PacketQueue[QID(reorder_value+i)].reorder_p, (Handler*) 0);///original ends
+                ret += 1;
+            }
+        }
+
+        reorder_value = seq;
+
+        fprintf(stderr, "Deque : deque %d packets, Value move to %d.\n", ret, reorder_value);
+        // return 1;
+    }
+
+    if (PacketQueue[QID(seq)].flag == 1)
+    {
+        fprintf(stderr, "Enque : qid conflit. < seq:%d qid:%d >\n", seq, QID(seq));
+        return -1;
+    }
+
+    // if(seq != reorder_value)
+    //  printk("Enque out-of-order packet: < seq:%d value:%d >\n", seq, reorder_value);
+
+    PacketQueue[QID(seq)].seq = seq;
+    PacketQueue[QID(seq)].flag = 1;
+	PacketQueue[QID(seq)].reorder_p = p;
+	PacketQueue[QID(seq)].time = Scheduler::instance().clock();
+
+    return 0;
+}
+
+int CLBProcessor::Dequeue_PacketQueue(void)
+{
+    if (PacketQueue[QID(reorder_value)].flag == 0)
+        return 0;
+
+    int ret = 0;
+    while(PacketQueue[QID(reorder_value)].flag == 1)
+    {
+        PacketQueue[QID(reorder_value)].flag = 0;    
+        
+        // invoke okfn() to deliver packet up 
+		NsObject* target = c_->find(PacketQueue[QID(reorder_value)].reorder_p);
+			if (target == NULL)
+			 		Packet::free(PacketQueue[QID(reorder_value)].reorder_p);
+			else 
+				target->recv(PacketQueue[QID(reorder_value)].reorder_p, (Handler*) 0);
+        
+        reorder_value = (reorder_value + 1) ;
+        ret += 1;
+    }
+    return ret;
+}
+
+
+
+
+
+
+int CLBProcessor::reorder(Packet* p)
+{
+	// fprintf(stderr, "reorder in! ........\n");
+
+	Enqueue_PacketQueue(p);
+
+
+	Dequeue_PacketQueue();
+
+
+	// NsObject* target = c_->find(p);
+	// 	if (target == NULL) 
+	// 	{
+	// 			/*
+	// 			 * XXX this should be "dropped" somehow.  Right now,
+	// 			 * these events aren't traced.
+				 
+	// 	 		Packet::free(p);
+	// 			// return;
+	// 		}
+	// 	else 
+	// 		target->recv(p, (Handler*) 0);///original ends
+
+
+	return 2;
 }
 
 
@@ -1700,4 +1911,34 @@ void CLBProcessor::vpRecvEcnCnt_debug()
     
     
     // fprintf(time_rf, "[vpECE_debug elapse %lf]\n",elapsed_secs);
+}
+
+
+void CLBProcessor::packetSeq_debug(Packet* p)
+{
+	char str1[128];
+	memset(str1,0,128*sizeof(char));
+	sprintf(str1,"CLB/%d/PacketSequence-%d.tr",src_,dst_);
+	FILE* fpResult=fopen(str1,"a+");
+	if(fpResult==NULL)
+    {
+        fprintf(stderr,"Can't open file %s!\n",str1);
+        return;
+    	// return(TCL_ERROR);
+    } 
+
+
+    hdr_tcp* tcph = hdr_tcp::access(p);
+
+
+    fprintf(fpResult,"%lf %d %d\n",
+        Scheduler::instance().clock()
+        ,tcph->seqno()
+        ,tcph->ackno());
+
+
+
+
+    // fprintf(fpResult, "\n");
+	fclose(fpResult);
 }

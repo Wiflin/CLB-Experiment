@@ -10,7 +10,7 @@ if [[  $# -ne 1 && $# -ne 2 && $# -ne 3 && $# -ne 4 ]];then
 fi 
 
 
-methods=( "ECMP"  "CLB" "CLOVE" "CONGA"  "HERMES")
+methods=( "ECMP"  "CLB" "CLOVE" "HERMES")
 load=`seq 0.1 0.1 1`
 granularitys=("overview" "small" "mid" "large")
 

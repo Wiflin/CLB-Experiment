@@ -55,11 +55,15 @@
 #include <sys/stat.h> 
 #include <map>
 #include <queue>
+#include <vector>
 
 class Node;
 class Classifier;
 class CLOVE;
 class CLOVEProcessor;
+
+
+
 
 // #####################################
 // used by a sender
@@ -106,7 +110,22 @@ struct ca_response {
 	double time;
 };
 
+
 // ########################################
+
+struct FlowletRecord
+{
+	int src_ip;
+	int src_port;
+	int dst_ip;
+	int dst_port;
+	unsigned 	hashkey;
+	double		timeStamp;
+};
+
+
+
+
 
 // class CLOVEProcessorTimer : public TimerHandler {
 // public: 
@@ -199,7 +218,7 @@ protected:
 	queue < unsigned >		ca_queue;
 	map < unsigned, struct ca_response* >	ca_map;
 
-
+	vector < struct FlowletRecord* > 		flow_table;
 	
 
 	void init_vp_record(struct vp_record* vp);
@@ -227,6 +246,10 @@ protected:
 	void vpRecvEcnCnt_debug();
 	void vpCARecvEcnCnt_debug();
 	
+
+
+	struct FlowletRecord* find_flowlet(Packet* p);
+
 };
 
 

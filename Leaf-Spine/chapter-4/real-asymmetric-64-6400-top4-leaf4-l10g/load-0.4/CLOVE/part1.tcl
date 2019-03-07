@@ -30,8 +30,8 @@ set fInputTrafficBindFlowID [open InputFlow-BindFlowID-$serverNumber-$flowNumber
 set fFCT "InputFlow-FCT-$serverNumber-$flowNumber.tr"
 
 set intialCwnd 100
-Agent/TCP/FullTcp/Sack set sack_rtx_cthresh_ 5000;
-Agent/TCP/FullTcp set tcprexmtthresh_ 5000
+Agent/TCP/FullTcp/Sack set sack_rtx_cthresh_ 10;
+Agent/TCP/FullTcp set tcprexmtthresh_ 10
 Agent/TCP set IF_PRINT_SEQTIMELINE 1
 
 if {$method == "CONGA"} {

@@ -40,10 +40,21 @@ static const char rcsid[] =
 #include "packet.h"
 #include "ip.h"
 #include "connector.h"
+#include <iostream>
+#include <sstream>
+#include <sys/stat.h> 
 
 class TTLChecker : public Connector {
 public:
-	TTLChecker() : noWarn_(1), tick_(1) {}
+	TTLChecker() : noWarn_(1), tick_(1) 
+	{
+
+		// bind("fromNodeID_",&fromNodeID_);///CG add
+		// bind("toNodeID_",&toNodeID_);///CG add
+
+		// mkdir("TTL",0777);
+		// system("exec rm -r -f TTL/*");
+	}
 	int command(int argc, const char*const* argv) {
 		if (argc == 3) {
 			if (strcmp(argv[1], "warning") == 0) {
@@ -66,6 +77,8 @@ public:
 		return Connector::command(argc, argv);
 	}
 	void recv(Packet* p, Handler* h) {
+		// printRecv(p);
+
 		hdr_ip* iph = hdr_ip::access(p);
 		int ttl = iph->ttl() - tick_;
 		if (ttl <= 0) {
@@ -80,9 +93,39 @@ public:
 		iph->ttl() = ttl;
 		send(p, h);
 	}
+
+	void printRecv(Packet* p)
+	{
+
+	 //    hdr_ip *iph = hdr_ip::access(p);
+	 //    hdr_cmn* cmnh = hdr_cmn::access(p);
+
+	 //    char str1[128];
+		// memset(str1,0,128*sizeof(char));
+		// sprintf(str1,"TTL/Link_%d-%d.tr"
+		// 	,fromNodeID_
+		// 	,toNodeID_);
+
+		// FILE* fpResult=fopen(str1,"a");
+		// if(fpResult==NULL)
+		// {
+		// 	fprintf(stderr,"Can't open file %s!\n",str1);
+		// }
+	    
+	 //    fprintf(fpResult,"%.9f\t recv %u %6u\n",
+	 //        Scheduler::instance().clock()
+		// 	,cmnh->size_,cmnh->ecmpHashKey);
+
+	 //    fclose(fpResult);
+	}
+
 protected:
 	int noWarn_;
 	int tick_;
+
+
+	int fromNodeID_; //////CG add
+	int toNodeID_;  //////CG add
 };
 
 static class TTLCheckerClass : public TclClass {

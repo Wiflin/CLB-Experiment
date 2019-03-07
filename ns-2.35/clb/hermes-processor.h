@@ -109,6 +109,7 @@ struct ca_response {
 	int 	 burst_cnt;
 	vector<bool> ecn_bitmap;
 	double 	 ecn_time;
+	double 	 rtt_time;
 	double	 burst_time;
 	double time;
 };
@@ -206,6 +207,7 @@ protected:
 	queue < unsigned >		ca_queue;
 	map < unsigned, struct ca_response* >	ca_map;
 
+	map < unsigned, unsigned > flow_table;
 
 	
 
@@ -215,7 +217,7 @@ protected:
 
 
 
-	// void flow_debug(char* str, char* file = "Processor", Packet* p = NULL);
+	void flow_debug(char* str, char* file = "Processor", Packet* p = NULL);
 	// void vpt_debug();
 	// void vpsend_debug();
 	// void vpcost_debug(int expire=0);
@@ -228,7 +230,7 @@ protected:
 	void vpCWeight_debug();
 	void vpWeight_debug();
 	void ipECE_debug();
-	// void vpECE_debug();
+	void vpECE_debug();
 	// void vpBurstSend_debug(Packet* p);
 	// void vpBurstRecv_debug(Packet* p);
 	// void vpBurst_debug(char* str);

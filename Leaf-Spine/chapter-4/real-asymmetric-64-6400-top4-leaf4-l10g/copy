@@ -1,0 +1,33 @@
+#!/bin/bash
+
+
+
+
+method=("CLOVE")
+
+
+load=`seq 0.1 0.1 1`
+
+
+
+for i in ${load[@]}
+do
+
+	# echo "rm -rf load-$i && mkdir load-$i"
+	# rm -rf load-$i && mkdir load-$i
+
+	for j in ${method[@]}
+	do
+		# echo "|- mkdir load-$i/$j"
+		# mkdir load-$i/$j
+
+		echo "|- cp part1.tcl ./load-$i/$j"
+		cp part1.tcl ./load-$i/$j
+
+	done
+
+
+
+done
+
+

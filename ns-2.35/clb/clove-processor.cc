@@ -68,7 +68,15 @@
 #define CLOVE_WR	((double)3)
 #define CLOVE_WI	((double)100)
 #define PRE_RTT		((double)1.6E-4)
+
+// ecn expire time 
 #define T_WEIGHT_EXPIRE	((double)PRE_RTT * 200)
+// #define T_WEIGHT_EXPIRE	((double)20)
+
+// flowlet time interval
+#define T_FLOWLET_EXPIRE ((double)PRE_RTT * 1)
+
+// #define T_FLOWLET_EXPIRE (0)  // per packet
 
 // Virtual Path Module enabled/disabled
 #define VP_Module 1
@@ -115,9 +123,9 @@ CLOVEProcessor::CLOVEProcessor(Node* node, Classifier* classifier, CLOVE* clove,
 
 	// pt_.sched(T_REFRESH);
 
-	stringstream dir; 
-	dir << "CLOVE/" << src_;
-	mkdir(dir.str().c_str(),0777);
+	// stringstream dir; 
+	// dir << "CLOVE/" << src_;
+	// mkdir(dir.str().c_str(),0777);
 
 
 
@@ -260,6 +268,8 @@ int CLOVEProcessor::send(Packet* p, Handler*h)
 	// vpWeight_debug();
 	// vpCWeight_debug();
 
+	double now = Scheduler::instance().clock();
+
 	hdr_ip* iph = hdr_ip::access(p);
 	hdr_cmn* cmnh = hdr_cmn::access(p);
 
@@ -273,8 +283,68 @@ int CLOVEProcessor::send(Packet* p, Handler*h)
 	struct ca_response*	ca = NULL;
 
 	// VP
+
 	vp = vp_next();
+
+	// fprintf(stderr, "[send] ----------ffffffffffffffff-----------\n");
+	// fflush(stderr);
+
+	// struct FlowletRecord* fr = find_flowlet(p);
+	
+	// if (fr == NULL)
+	// {
+	// 	vp = vp_next();
+
+	// 	struct FlowletRecord* tmp = new struct FlowletRecord();
+
+	// 	tmp->src_ip = iph->src().addr_;
+	// 	tmp->src_port = iph->src().port_;
+	// 	tmp->dst_ip = iph->dst().addr_;
+	// 	tmp->dst_port = iph->dst().port_;
+	// 	tmp->hashkey = vp->hashkey;
+	// 	tmp->timeStamp = now;
+
+	// 	flow_table.push_back(tmp);
+
+	// 	// fprintf(stderr, "[send] aaaaaaaaaaaaaaaaaaaaaaaaa !!!!!!!!!!!!!!!!!!\n");
+		
+	// }
+	// else
+	// {
+	// 	if (now - fr->timeStamp > T_FLOWLET_EXPIRE)
+	// 	{
+	// 		vp = vp_next();
+	// 		fr->hashkey = vp->hashkey;
+	// 		fr->timeStamp = now;
+
+
+	// 	// fprintf(stderr, "[send] bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb !!!!!!!!!!!!!!!!!!\n");
+		
+	// 	}
+	// 	else
+	// 	{
+	// 		vp = vp_get(fr->hashkey);
+
+
+	// 		// fprintf(stderr, "[send] ccc    %p                  (%u.%u)-(%u.%u) fr->hashkey = %u\n", fr,
+	// 		// 	fr->src_ip, fr->src_port,
+	// 		// 	fr->dst_ip, fr->dst_port,
+	// 		//  	fr->hashkey);
+		
+	// 	}
+
+	// }
+
+
+	// if (vp == NULL)
+	// {
+	// 	fprintf(stderr, "[send] vp is NULL !!!!!!!!!!!!!!!!!!\n");
+	// 	fflush(stderr);
+	// }
+
+	// vp = vp_next();
 	clove_hashkey = vp->hashkey;
+
 
 	// record 
 	vp->ca_row.send_cnt += 1;
@@ -297,9 +367,36 @@ int CLOVEProcessor::send(Packet* p, Handler*h)
 	cmnh->clove_row.vp_rid = clove_recv_vpid;
 	cmnh->clove_row.vp_recn = clove_recv_ecn;
 	cmnh->clove_row.response_en = clove_ren;	
-
+	
 	return 0;
 }
+
+
+struct FlowletRecord* CLOVEProcessor::find_flowlet(Packet* p)
+{
+	struct FlowletRecord* fr = NULL;
+
+	hdr_ip* iph = hdr_ip::access(p);
+	hdr_cmn* cmnh = hdr_cmn::access(p);
+
+	vector < FlowletRecord* >::iterator it;
+	for (it = flow_table.begin(); it != flow_table.end(); it++)
+	{
+		if ((*it)->src_ip == iph->src().addr_ && 
+			(*it)->dst_ip == iph->dst().addr_ &&
+			(*it)->src_port == iph->src().port_ &&
+			(*it)->dst_port == iph->dst().port_ )
+		{
+			fr = (*it);
+			break;
+		}
+
+	}
+
+	return fr;
+}
+
+
 
 // void CLOVEProcessor::expire(Event *e)
 // {	

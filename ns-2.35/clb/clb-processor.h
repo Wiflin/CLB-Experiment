@@ -61,6 +61,10 @@ class Classifier;
 class CLB;
 class CLBProcessor;
 
+
+#define QUEUE_SIZE 100000
+
+
 // #####################################
 // used by a sender
 struct ca_record
@@ -70,13 +74,12 @@ struct ca_record
 	unsigned send_undefined;
 	int recv_undefined;
 	double	 flying;
-	double 	 rate;
-	double	 r_rate;
-	double 	 c_rate;
+	double 	 rate;			// set r_rate:=rate if receive ECN 
+	double	 r_rate;		// weight for routing
+	double 	 c_rate;		// current value for routing
 	double 	 fresh_time;
 	double	 update_time;
 	double	 r_time;	
-
 
 	unsigned recv_ece_cnt; // for debug
 	//just for ns2 simulator, it isn't needed in real
@@ -106,6 +109,18 @@ struct ca_response {
 };
 
 // ########################################
+
+struct reorder_info {
+	unsigned seq;
+	bool flag;
+	Packet* reorder_p;
+	double time;
+};
+
+
+
+// ########################################
+
 
 class CLBProcessorTimer : public TimerHandler {
 public: 
@@ -161,6 +176,15 @@ protected:
 	// function packet send
 	Packet* pkt_alloc();
 
+	void Init_PacketQueue(void);
+
+	int Enqueue_PacketQueue(Packet* p);
+	int Dequeue_PacketQueue(void);
+
+	int reorder(Packet* p);
+
+
+
 	Node* 		n_;
 	Classifier*	c_;
 	CLB* 		clb_;
@@ -196,6 +220,11 @@ protected:
 	queue < unsigned >		ca_queue;
 	map < unsigned, struct ca_response* >	ca_map;
 
+
+	// about reorder buffer
+	unsigned reorder_value;
+	// int max_ooo_num;
+	struct reorder_info PacketQueue[QUEUE_SIZE];
 
 	inline double init_rate() {
 		// double irc = 1;
@@ -271,6 +300,7 @@ protected:
 	void vpBurstRecv_debug(Packet* p);
 	void vpBurst_debug(char* str);
 	void vpRecvEcnCnt_debug();
+	void packetSeq_debug(Packet* p);
 	
 };
 

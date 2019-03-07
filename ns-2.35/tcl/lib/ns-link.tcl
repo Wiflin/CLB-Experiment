@@ -219,6 +219,9 @@ SimpleLink instproc init { src dst bw delay q {lltype "DelayLink"} } {
 	$self ttl-drop-trace
 	$link_ target $ttl_
 
+	# $ttl_ set fromNodeID_ [$src id]
+	# $ttl_ set toNodeID_ [$dst id]
+
 	# Finally, if running a multicast simulation,
 	# put the iif for the neighbor node...
 	if { [$ns multicast?] } {

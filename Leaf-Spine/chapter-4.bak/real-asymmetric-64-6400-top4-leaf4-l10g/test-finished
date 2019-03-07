@@ -1,0 +1,131 @@
+#!/bin/bash
+
+if [[  $# -ne 1 && $# -ne 2 && $# -ne 3 && $# -ne 4 ]];then
+
+	echo "Usage: "
+	echo " $0 test [ load ]"
+	echo " $0 caculate servers flows [ load ]"
+	exit
+
+fi 
+
+
+methods=( "ECMP"  "CLB" "CLOVE" "CONGA"  "HERMES")
+load=`seq 0.1 0.1 1`
+granularitys=("overview" "small" "mid" "large")
+
+
+# r=`date`
+# echo $r
+# echo $?
+
+testf()
+{
+
+	loadc=$1
+
+	for method in ${methods[@]}
+	do
+		loadfile="./load-$loadc/$method/InputFlow-FCT*"
+		if [ ! -e $loadfile ];then
+			return 1
+		fi
+	done
+
+	return 0
+}
+
+testa()
+{
+	loadc=$1
+	method=$2
+	loadfile="./load-$loadc/$method/InputFlow-FCT*"
+	if [ ! -e $loadfile ];then
+		return 1
+	fi
+
+	return 0
+}
+
+
+caculate()
+{
+	loadc=$1
+	servers=$2
+	flows=$3
+	granularity=$4
+	
+	result="$1"
+
+
+	for method in ${methods[@]}
+	do
+		testa $loadc $method
+
+		if [ $? == 0 ];then
+			filename="./load-$loadc/$method/InputFlow-FCT-$servers-$flows.tr"
+			# echo caculate file $filename
+			r_src=`python3 ./untitled0.py $filename $granularity`
+			echo $r_src >>tmp
+			r=`echo $r_src| cut -d " " -f 5`
+			result="$result	$r"
+		else
+			result="$result	XXXXXX"
+
+		fi
+	done
+	echo $result
+}
+
+
+if [ "$1"x == "test"x ]; then
+
+
+	if [ "$2"x != ""x ]
+	then
+		load=$2
+	fi
+
+	for i in ${load[@]}
+	do
+		testf $i
+		echo "test load-$i ->$?"
+	done
+
+
+	exit
+fi
+
+
+if [ "$1"x == "caculate"x ]; then
+
+
+	servers=$2
+	flows=$3
+
+	if [ "$4"x != ""x ];then
+		load=($4)
+	fi
+
+	echo caculate batch $load
+
+	
+
+	for g in ${granularitys[@]}
+	do
+		echo granularity---$g
+		mstr="load"
+		for method in ${methods[@]}
+		do
+			mstr="$mstr	$method"
+		done
+		echo $mstr
+
+		for i in ${load[@]}
+		do
+				caculate $i $servers $flows $g
+		done
+	done
+
+	exit
+fi

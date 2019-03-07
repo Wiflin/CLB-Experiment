@@ -217,10 +217,15 @@ void Classifier::recv(Packet* p, Handler*h)
 		
 
 
-		if (truncate)
+		if (truncate == 1)
 		{
 
 			Packet::free(p);
+			return;
+		}
+
+		if (truncate == 2)
+		{
 			return;
 		}
 

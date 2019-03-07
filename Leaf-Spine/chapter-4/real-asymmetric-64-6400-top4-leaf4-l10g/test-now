@@ -8,8 +8,8 @@ if [[  $# -ne 1 && $# -ne 2 ]];then
 fi 
 
 
-methods=("CLB" "CLOVE" "CONGA" "ECMP" "HERMES")
-#methods=( "HERMES")
+# methods=("CLB" "CLOVE" "ECMP" "HERMES")
+methods=( "CLOVE")
 load=`seq 0.1 0.1 1`
 flows=$1
 

@@ -85,17 +85,17 @@ for {set i 0} {$i<$topSwitchNumber} {incr i} {
 # 10G => 400 queue length
 
 
-set queueSpineSwitch 400
-set queueLeafSwitch 400
+set queueSpineSwitch 800
+set queueLeafSwitch 800
 
 set queueManage "DropTail"
 set ecnThresholdPortion 0.3
 
-set sendBufferSize	800
+set sendBufferSize	4000
 set ecnThresholdPortionLeaf 0.3
 
-set linkRate	10G
-set linkAccessRate 	20G
+set linkRate	20G
+set linkAccessRate 	100G
 # 0.02 ms
 set linkDelay 	0.02 
 # 
@@ -171,16 +171,16 @@ puts "initializing links between leaf(i) and spine switches......"
 
 
 # 0 -> 0
-$ns simplex-link $sLeaf(0) $sSpine(0) $linkRate 0.00002s $queueManage	
+$ns simplex-link $sLeaf(0) $sSpine(0) 10G 0.00002s $queueManage	
 $ns queue-limit $sLeaf(0) $sSpine(0) $queueLeafSwitch
-$ns ecn-threshold $sLeaf(0) $sSpine(0) [expr int($queueLeafSwitch*$ecnThresholdPortion)]
+$ns ecn-threshold $sLeaf(0) $sSpine(0) [expr int( $queueLeafSwitch *$ecnThresholdPortion)]
 
-$ns simplex-link $sSpine(0) $sLeaf(0) $linkRate 0.00002s $queueManage
+$ns simplex-link $sSpine(0) $sLeaf(0) 10G 0.00002s $queueManage
 $ns queue-limit $sSpine(0) $sLeaf(0) $queueSpineSwitch
-$ns ecn-threshold $sSpine(0) $sLeaf(0) [expr int($queueSpineSwitch*$ecnThresholdPortion)]
+$ns ecn-threshold $sSpine(0) $sLeaf(0) [expr int( $queueSpineSwitch *$ecnThresholdPortion)]
 
 set queueA [[$ns link $sLeaf(0) $sSpine(0)] queue]
-# $queueA monitor-QueueLen
+$queueA monitor-QueueLen
 $queueA monitor-FlowSpeed
 $queueA monitor-FlowPath
 
@@ -194,7 +194,7 @@ $ns queue-limit $sSpine(1) $sLeaf(0) $queueSpineSwitch
 $ns ecn-threshold $sSpine(1) $sLeaf(0) [expr int($queueSpineSwitch*$ecnThresholdPortion)]
 
 set queueB [[$ns link $sLeaf(0) $sSpine(1)] queue]
-# $queueB monitor-QueueLen
+$queueB monitor-QueueLen
 $queueB monitor-FlowSpeed
 $queueB monitor-FlowPath
 
@@ -219,14 +219,14 @@ $queueB monitor-FlowPath
 # $queueD monitor-QueueLen
 
 # 1 -> 0
-$ns simplex-link $sLeaf(1) $sSpine(0) 2G 0.00002s $queueManage	
-$ns queue-limit $sLeaf(1) $sSpine(0) 80
-$ns ecn-threshold $sLeaf(1) $sSpine(0) [expr int(200*$ecnThresholdPortion)]
-$ns simplex-link $sSpine(0) $sLeaf(1) 2G 0.00002s $queueManage
-$ns queue-limit $sSpine(0) $sLeaf(1) 80
-$ns ecn-threshold $sSpine(0) $sLeaf(1) [expr int(200*$ecnThresholdPortion)]
+$ns simplex-link $sLeaf(1) $sSpine(0) 10G 0.00002s $queueManage	
+$ns queue-limit $sLeaf(1) $sSpine(0) $queueLeafSwitch
+$ns ecn-threshold $sLeaf(1) $sSpine(0) [expr int( $queueLeafSwitch *$ecnThresholdPortion)]
+$ns simplex-link $sSpine(0) $sLeaf(1) 10G 0.00002s $queueManage
+$ns queue-limit $sSpine(0) $sLeaf(1) $queueSpineSwitch
+$ns ecn-threshold $sSpine(0) $sLeaf(1) [expr int( $queueSpineSwitch *$ecnThresholdPortion)]
 set queueC [[$ns link $sLeaf(1) $sSpine(0)] queue]
-# $queueC monitor-QueueLen
+$queueC monitor-QueueLen
 $queueC monitor-FlowSpeed
 $queueC monitor-FlowPath
 
@@ -268,7 +268,7 @@ $ns queue-limit $sSpine(0) $sLeaf(2) $queueSpineSwitch
 $ns ecn-threshold $sSpine(0) $sLeaf(2) [expr int($queueSpineSwitch*$ecnThresholdPortion)]
 
 set queueH [[$ns link $sSpine(0) $sLeaf(2)] queue]
-# $queueH monitor-QueueLen
+$queueH monitor-QueueLen
 $queueH monitor-FlowSpeed
 $queueH monitor-FlowPath
 
@@ -281,7 +281,7 @@ $ns queue-limit $sSpine(1) $sLeaf(2) $queueSpineSwitch
 $ns ecn-threshold $sSpine(1) $sLeaf(2) [expr int($queueSpineSwitch*$ecnThresholdPortion)]
 
 set queueI [[$ns link $sSpine(1) $sLeaf(2)] queue]
-# $queueI monitor-QueueLen
+$queueI monitor-QueueLen
 $queueI monitor-FlowSpeed
 $queueI monitor-FlowPath
 
@@ -372,7 +372,7 @@ Agent/TCP set windowInit_ 16
 
 Agent/TCP set maxRto_	3
 
-Agent/TCP set max_ssthresh_ 20000
+Agent/TCP set max_ssthresh_ 500
 
 Agent/TCPSink set ecn_syn_ true
 Agent/TCP set ecn_ 1
@@ -438,13 +438,13 @@ for {set k 0} {$k<$flowNumber} {incr k} {
 
 		# $tcp($currentInsertingConnID) ecmp-hash-key [expr abs(int([$rnd value]*0x10000))]
 
-		$tcp($currentInsertingConnID) ecmp-hash-key 12345
+		$tcp($currentInsertingConnID) ecmp-hash-key 12340
 
 		# $tcp($currentInsertingConnID) monitor-spare-window
 
-		# $tcp($currentInsertingConnID) monitor-Sequence
+		$tcp($currentInsertingConnID) monitor-Sequence
 		$tcp($currentInsertingConnID) monitor-Speed
-		# $tcpsink($currentInsertingConnID) monitor-Sequence
+		$tcpsink($currentInsertingConnID) monitor-Sequence
 
 		$tcp($currentInsertingConnID) no-syn sender
 		$tcpsink($currentInsertingConnID) no-syn receiver
